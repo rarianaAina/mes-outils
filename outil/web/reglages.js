@@ -12,9 +12,14 @@
     "ex. Marie": "e.g. Mary",
     "Langue": "Language",
     "Thème": "Theme",
-    "🌗 Automatique": "🌗 Automatic",
-    "☀️ Clair": "☀️ Light",
-    "🌙 Sombre": "🌙 Dark",
+    "Automatique": "Automatic",
+    "Clair": "Light",
+    "Sombre": "Dark",
+    "Sépia": "Sepia",
+    "Contrasté": "High contrast",
+    "Accent": "Accent",
+    "Violet": "Violet", "Bleu": "Blue", "Vert": "Green", "Corail": "Coral", "Rose": "Rose",
+    "Densité": "Density", "Confortable": "Comfortable", "Compact": "Compact",
     "Onglets affichés": "Visible tabs",
     "Choisissez les applications du menu, comme dans un ERP : les autres disparaissent, leurs données restent.":
       "Choose the apps in the menu, like in an ERP: the others leave, their data stays.",
@@ -82,6 +87,15 @@
     "Installation automatique réservée au programme installé (AppImage).": "Automatic installation is only for the installed program (AppImage).",
     "Installation automatique réservée au programme installé (Setup.exe).": "Automatic installation is only for the installed program (Setup.exe).",
     "Affichage inconnu.": "Unknown display mode.",
+    "Notifications": "Notifications",
+    "Relances (contacts)": "Follow-ups (contacts)",
+    "Budget dépassé": "Budget exceeded",
+    "Documents qui expirent": "Expiring documents",
+    "Échéances": "Deadlines",
+    "Factures en retard": "Overdue invoices",
+    "Tâches à l'heure": "Tasks on time",
+    "Pomodoro": "Pomodoro",
+    "Réunions": "Meetings",
   });
 
   const style = document.createElement("style");
@@ -132,8 +146,15 @@
     const langues = el("div", { class: "langues-reg" }, [["fr", "Français"], ["en", "English"]].map(([code, nom]) =>
       el("button", { class: "btn" + (i.langue === code ? " actif" : ""), onclick: () => { if (code !== i.langue) enregistrer({ langue: code }, true); } }, nom)));
 
-    const themes = el("div", { class: "langues-reg" }, [["auto", "🌗 Automatique"], ["clair", "☀️ Clair"], ["sombre", "🌙 Sombre"]].map(([code, nom]) =>
-      el("button", { class: "btn" + (S.theme === code ? " actif" : ""), onclick: async () => { await changerTheme(code); dessiner(); } }, nom)));
+    const themes = el("div", { class: "langues-reg" }, [["auto", "Automatique"], ["clair", "Clair"], ["sombre", "Sombre"], ["sepia", "Sépia"], ["contraste", "Contrasté"]].map(([code, nom]) =>
+      el("button", { class: "btn" + (S.theme === code ? " actif" : ""), onclick: async () => { await changerTheme(code); dessiner(); } }, icone(ICONES_THEMES[code]), t(nom))));
+    const COULEURS_ACCENT = { violet: "#5b5bd6", bleu: "#2f7ae5", vert: "#12a37a", corail: "#e5603e", rose: "#d6457a" };
+    const accents = el("div", { class: "langues-reg" }, [["violet", "Violet"], ["bleu", "Bleu"], ["vert", "Vert"], ["corail", "Corail"], ["rose", "Rose"]].map(([code, nom]) =>
+      el("button", { class: "btn" + (S.accent === code ? " actif" : ""), onclick: async () => { await changerAccent(code); dessiner(); } },
+        el("span", { style: `background:${COULEURS_ACCENT[code]}; width:14px; height:14px; border-radius:50%; display:inline-block; border:2px solid var(--carte); box-shadow:0 0 0 1px var(--ligne)` }),
+        t(nom))));
+    const densites = el("div", { class: "langues-reg" }, [["confortable", "Confortable"], ["compact", "Compact"]].map(([code, nom]) =>
+      el("button", { class: "btn" + (S.densite === code ? " actif" : ""), onclick: async () => { await changerDensite(code); dessiner(); } }, t(nom))));
 
     const masques = new Set(i.onglets_masques);
     const onglets = listeOnglets().filter(o => o.nom !== "accueil" && o.nom !== "reglages")
@@ -192,10 +213,33 @@
         carte("👤", "Profil",
           el("label", { class: "champ" }, "Prénom (pour la salutation)", prenom),
           el("label", { class: "champ" }, "Langue", langues),
-          el("label", { class: "champ" }, "Thème", themes)),
+          el("label", { class: "champ" }, "Thème", themes),
+          el("label", { class: "champ" }, "Accent", accents),
+          el("label", { class: "champ" }, "Densité", densites),
+          el("label", { class: "champ" }, "Accent", accents)),
         carte("🗂️", "Applications", el("p", { class: "aide" }, "Choisissez les applications du menu, comme dans un ERP : les autres disparaissent, leurs données restent."),
           i.profil && PROFILS[i.profil] ? el("p", { class: "aide" }, t("Votre métier : {p}", { p: t(PROFILS[i.profil].titre) })) : null,
           el("button", { class: "btn", onclick: () => montrerVue("applications") }, "Choisir mes applications")),
+        carte("🔔", "Notifications", el("p", { class: "aide" }, "Choisissez les applications qui peuvent vous envoyer des rappels par la bulle."),
+          el("div", { class: "cases-reg" }, [
+            ["contacts", "Relances (contacts)"],
+            ["depenses", "Budget dépassé"],
+            ["documents", "Documents qui expirent"],
+            ["echeances", "Échéances"],
+            ["factures", "Factures en retard"],
+            ["taches", "Tâches à l'heure"],
+            ["temps", "Pomodoro"],
+            ["reunions", "Réunions"],
+          ].map(([nom, libelle]) => {
+            const desactivees = new Set(i.notifications_desactivees || []);
+            const actif = !desactivees.has(nom);
+            return el("label", { class: "case-reg" },
+              el("input", { type: "checkbox", checked: actif ? "" : null, onchange: async e => {
+                const desac = new Set(i.notifications_desactivees || []);
+                if (e.target.checked) desac.delete(nom); else desac.add(nom);
+                await enregistrer({ notifications_desactivees: [...desac] });
+              } }), libelle);
+          }))),
         carte("📁", "Dossiers de projets", el("p", { class: "aide" }, "Les onglets GitHub, Projets et État Git y cherchent vos projets (le dossier et ses sous-dossiers directs)."),
           listeDossiers, ajoutDossier),
         i.systeme === "linux" ? carteLinux(i, interrupteur)
