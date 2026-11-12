@@ -57,7 +57,13 @@ def lire(_d=None):
         "prenom": contenu.get("prenom") or "",
         "langue": config.langue(),
         "theme": config.theme(),
+        "accent": config.accent(),
+        "densite": config.densite(),
+        "vue_taches": config.vue_taches(),
+        "priorite_taches": config.priorite_taches(),
+        "rappel_agenda": config.rappel_agenda(),
         "onglets_masques": contenu.get("onglets_masques") or [],
+        "notifications_desactivees": contenu.get("notifications_desactivees") or [],
         "apps_actives": contenu.get("apps_actives"),
         "profil": contenu.get("profil") or "",
         "dossiers_projets": config.dossiers_projets(),
@@ -88,6 +94,26 @@ def enregistrer(d):
         if d["theme"] not in config.THEMES:
             raise ValueError("Thème inconnu.")
         valeurs["theme"] = d["theme"]
+    if "accent" in d:
+        if d["accent"] not in config.ACCENTS:
+            raise ValueError("Accent inconnu.")
+        valeurs["accent"] = d["accent"]
+    if "densite" in d:
+        if d["densite"] not in config.DENSITES:
+            raise ValueError("Densité inconnue.")
+        valeurs["densite"] = d["densite"]
+    if "vue_taches" in d:
+        if d["vue_taches"] not in config.VUES_TACHES:
+            raise ValueError("Vue des tâches inconnue.")
+        valeurs["vue_taches"] = d["vue_taches"]
+    if "priorite_taches" in d:
+        if d["priorite_taches"] not in config.PRIORITES_TACHES:
+            raise ValueError("Priorité inconnue.")
+        valeurs["priorite_taches"] = d["priorite_taches"]
+    if "rappel_agenda" in d:
+        if str(d["rappel_agenda"]) not in config.RAPPELS_AGENDA:
+            raise ValueError("Rappel inconnu.")
+        valeurs["rappel_agenda"] = str(d["rappel_agenda"])
     if "apps_actives" in d:
         apps = d["apps_actives"]
         if apps is not None and (not isinstance(apps, list) or not all(isinstance(n, str) and n.isidentifier() for n in apps)):
@@ -104,6 +130,33 @@ def enregistrer(d):
         if not isinstance(masques, list) or not all(isinstance(n, str) and n.isidentifier() for n in masques):
             raise ValueError("Liste d'onglets invalide.")
         valeurs["onglets_masques"] = [n for n in masques if n not in ("accueil", "reglages")]
+    if "notifications_desactivees" in d:
+        notifs = d["notifications_desactivees"] or []
+        if not isinstance(notifs, list) or not all(isinstance(n, str) and n.isidentifier() for n in notifs):
+            raise ValueError("Liste de notifications invalide.")
+        valeurs["notifications_desactivees"] = notifs
+    if "ordre_menu" in d:
+        ordre = d["ordre_menu"]
+        if not isinstance(ordre, dict):
+            raise ValueError("Ordre du menu invalide.")
+        propre = {}
+        for g, liste in ordre.items():
+            if not isinstance(g, str):
+                raise ValueError("Groupe invalide.")
+            if not isinstance(liste, list) or not all(isinstance(n, str) and n.isidentifier() for n in liste):
+                raise ValueError("Liste d'onglets invalide.")
+            propre[g] = liste
+        valeurs["ordre_menu"] = propre
+    if "ordre_notes" in d:
+        ordre = d["ordre_notes"]
+        if not isinstance(ordre, list) or not all(isinstance(n, str) and n.isidentifier() for n in ordre):
+            raise ValueError("Ordre des notes invalide.")
+        valeurs["ordre_notes"] = ordre
+    if "ordre_contacts" in d:
+        ordre = d["ordre_contacts"]
+        if not isinstance(ordre, list) or not all(isinstance(n, str) and n.isidentifier() for n in ordre):
+            raise ValueError("Ordre des contacts invalide.")
+        valeurs["ordre_contacts"] = ordre
     if "presence" in d:
         if d["presence"] not in PRESENCES:
             raise ValueError("Affichage inconnu.")
