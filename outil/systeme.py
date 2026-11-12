@@ -257,12 +257,13 @@ def ouvrir_fenetre_appli(url, largeur=1360, hauteur=860):
         if LINUX:
             # Une icône et un nom à part dans le dock de GNOME.
             args.append(f"--class={ID_APPLI}")
-        subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+        proc = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                          stderr=subprocess.DEVNULL, **(
                              {"creationflags": DETACHE, "close_fds": True} if WINDOWS
                              else {"start_new_session": True, "close_fds": True}))
-        return
+        return proc
     webbrowser.open(url)
+    return None
 
 
 def html_vers_pdf(source_html, sortie_pdf, profil, delai=90):
@@ -377,7 +378,7 @@ def _lignes(sortie, separateur="\n"):
 
 
 def _zenity_fichiers(titre, depart, multi, filtre):
-    args = ["zenity", "--file-selection", f"--title={titre}", "--separator=\n"]
+    args = ["zenity", "--file-selection", "--modal", f"--title={titre}", "--separator=\n"]
     if multi:
         args.append("--multiple")
     if depart:
@@ -444,7 +445,7 @@ def choisir_dossier(titre="Choisir un dossier", depart=""):
             raise RuntimeError("Aucune fenêtre de choix de dossier : installez zenity "
                                "(sudo apt install zenity).")
         if outil == "zenity":
-            args = ["zenity", "--file-selection", "--directory", f"--title={titre}"]
+            args = ["zenity", "--file-selection", "--directory", "--modal", f"--title={titre}"]
             if depart:
                 args.append(f"--filename={depart.rstrip('/')}/")
         else:
