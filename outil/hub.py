@@ -27,7 +27,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import config  # noqa: E402  (outils.json et dossier donnees)
 import donnees  # noqa: E402  (notes et agenda)
+import musique  # noqa: E402  (lecteur audio local)
 import systeme  # noqa: E402  (tout ce qui dépend de Windows ou de Linux)
+import video  # noqa: E402  (visionneuse vidéo locale)
 
 # MES_OUTILS_PORT : un autre port (essais, seconde copie à côté de la vraie).
 HOTE, PORT = "127.0.0.1", int(os.environ.get("MES_OUTILS_PORT") or 8760)
@@ -72,15 +74,28 @@ def modules_connus():
     installé : la liste écrite au moment de la construction (modules.json)."""
     liste = os.path.join(ICI, "modules.json")
     if config.GELE and os.path.isfile(liste):
-        with open(liste, encoding="utf-8") as f:
-            return set(json.load(f))
-    return {n[:-3] for n in os.listdir(ICI) if n.endswith(".py")} - {"hub", "bulle"}
+        try:
+            with open(liste, encoding="utf-8") as f:
+                return set(json.load(f))
+        except (OSError, json.JSONDecodeError):
+            journal(f"modules.json illisible : {liste}")
+            return set()
+    try:
+        return {n[:-3] for n in os.listdir(ICI) if n.endswith(".py")} - {"hub", "bulle"}
+    except OSError as erreur:
+        journal(f"Impossible de lire le dossier des modules : {erreur}")
+        return set()
 
 
 def routes_module(nom):
     if not MODULE_VALIDE.match(nom) or nom not in modules_connus():
         return None
-    routes = getattr(importlib.import_module(nom), "ROUTES", None)
+    try:
+        module = importlib.import_module(nom)
+    except Exception as erreur:  # noqa: BLE001
+        journal(f"Module illisible ({nom}) : {type(erreur).__name__} : {erreur}")
+        return None
+    routes = getattr(module, "ROUTES", None)
     return routes if isinstance(routes, dict) else None
 
 
@@ -364,6 +379,7 @@ class Gestionnaire(BaseHTTPRequestHandler):
             if chemin == "/api/onglets":
                 contenu = lire_outils()
                 return self.repondre(200, {"fichiers": onglets_web(), "langue": config.langue(), "theme": config.theme(),
+                                           "accent": config.accent(), "densite": config.densite(),
                                            "masques": contenu.get("onglets_masques") or [],
                                            # None : jamais choisies (anciennes installations : tout est actif)
                                            "apps_actives": contenu.get("apps_actives"),
@@ -394,6 +410,32 @@ class Gestionnaire(BaseHTTPRequestHandler):
                 if os.path.isfile(fichier) and os.path.splitext(nom)[1] in TYPES_FICHIERS:
                     with open(fichier, "rb") as f:
                         return self.repondre(200, f.read(), TYPES_FICHIERS[os.path.splitext(nom)[1]])
+            if chemin == "/fichier/musique":
+                chemin_fichier = urllib.parse.unquote(self.path.split("?chemin=", 1)[-1]) if "?chemin=" in self.path else None
+                if chemin_fichier:
+                    chemin_fichier = os.path.normpath(chemin_fichier)
+                    if os.path.isfile(chemin_fichier) and os.path.splitext(chemin_fichier)[1].lower() in musique.EXTENSIONS:
+                        type_mime = {
+                            ".mp3": "audio/mpeg", ".wav": "audio/wav", ".ogg": "audio/ogg",
+                            ".m4a": "audio/mp4", ".flac": "audio/flac", ".aac": "audio/aac",
+                            ".opus": "audio/opus", ".wma": "audio/x-ms-wma",
+                        }.get(os.path.splitext(chemin_fichier)[1].lower(), "application/octet-stream")
+                        with open(chemin_fichier, "rb") as f:
+                            return self.repondre(200, f.read(), type_mime)
+                return self.repondre(404, {"erreur": "Fichier introuvable."})
+            if chemin == "/fichier/video":
+                chemin_fichier = urllib.parse.unquote(self.path.split("?chemin=", 1)[-1]) if "?chemin=" in self.path else None
+                if chemin_fichier:
+                    chemin_fichier = os.path.normpath(chemin_fichier)
+                    if os.path.isfile(chemin_fichier) and os.path.splitext(chemin_fichier)[1].lower() in video.EXTENSIONS:
+                        type_mime = {
+                            ".mp4": "video/mp4", ".webm": "video/webm", ".ogg": "video/ogg",
+                            ".mov": "video/quicktime", ".avi": "video/x-msvideo",
+                            ".mkv": "video/x-matroska", ".m4v": "video/mp4", ".wmv": "video/x-ms-wmv",
+                        }.get(os.path.splitext(chemin_fichier)[1].lower(), "application/octet-stream")
+                        with open(chemin_fichier, "rb") as f:
+                            return self.repondre(200, f.read(), type_mime)
+                return self.repondre(404, {"erreur": "Fichier introuvable."})
             self.repondre(404, {"erreur": "Introuvable."})
         except Exception as e:  # noqa: BLE001
             journal(traceback.format_exc())

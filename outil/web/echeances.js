@@ -5,7 +5,7 @@
    filtres par catégorie, recherche, export CSV, rappels par la bulle. */
 (() => {
   I18N.ajouter({
-    "Échéances": "Due dates",
+    "Échéances": "Deadlines",
     "Abonnements, contrats, assurances, noms de domaine, loyers : tout ce qui se renouvelle ou expire, avec un rappel avant chaque échéance et avant la date limite de résiliation.":
       "Subscriptions, contracts, insurance, domain names, rent: everything that renews or expires, with a reminder before each due date and before the cancellation deadline.",
     "Nouvelle échéance": "New due date",
@@ -40,10 +40,10 @@
     "Annuler": "Cancel", "Enregistrer": "Save", "Ajouter": "Add", "Supprimer": "Delete", "Modifier": "Edit",
     "Mensuelle": "Monthly", "Trimestrielle": "Quarterly", "Annuelle": "Yearly", "Tous les N mois": "Every N months",
     "Date unique": "One-off", "Mensuel": "Monthly", "Trimestriel": "Quarterly", "Annuel": "Yearly",
-    "Actif": "Active", "À résilier": "To cancel", "Résilié": "Cancelled", "Terminé": "Completed",
+    "Actif": "Active", "À résilier": "To cancel", "Résilié": "Cancelled", "Terminé": "Done",
     "Logiciel": "Software", "Téléphone et Internet": "Phone and Internet", "Assurance": "Insurance",
     "Contrat": "Contract", "Nom de domaine": "Domain name", "Licence": "Licence", "Loyer": "Rent",
-    "Énergie": "Energy", "Banque": "Banking", "Autre": "Other",
+    "Énergie": "Energy", "Banque": "Bank", "Autre": "Other",
     "Payé / renouvelé": "Paid / renewed",
     "Ouvrir l'espace client": "Open customer portal",
     "Aujourd'hui": "Today", "Demain": "Tomorrow", "Hier": "Yesterday",
