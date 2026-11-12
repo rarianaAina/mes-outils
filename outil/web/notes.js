@@ -10,13 +10,12 @@
     "Avec rappel": "With reminder",
     "Chercher dans les notes…": "Search notes…",
     "＋ Note": "＋ Note",
-    "☑️ Liste": "☑️ List",
+    " Liste": " List",
     "Aucune note ne correspond.": "No matching note.",
-    "Pas encore de note. Une idée ? Notez-la ! ✍️": "No notes yet. Got an idea? Write it down! ✍️",
-    "+ {n} autres": "+ {n} more",
+    "Pas encore de note. Une idée ? Notez-la ! ": "No notes yet. Got an idea? Write it down! ", " + {n} autres": "+ {n} more",
     "Épinglée": "Pinned",
     "Enregistré": "Saved",
-    "✓ Enregistré": "✓ Saved",
+    " Enregistré": " Saved",
     "Écrivez ici…": "Write here…",
     "Élément…": "Item…",
     "Retirer": "Remove",
@@ -26,14 +25,14 @@
     "Rappel par la bulle": "Reminder from the bubble",
     "Rappel": "Reminder",
     "Passer en liste à cocher / en texte": "Switch to checklist / text",
-    "📄 En texte": "📄 As text",
-    "☑️ En liste": "☑️ As list",
+    " En texte": " As text",
+    " En liste": " As list",
     "Titre": "Title",
     "Supprimer cette note ?": "Delete this note?",
-    "Elle disparaît définitivement.": "It will be deleted permanently.",
+    "Elle disparaît définitivement.": "It is removed for good.",
     "Supprimer": "Delete",
-    "🗑 Supprimer": "🗑 Delete",
-    "🗑️ Note supprimée": "🗑️ Note deleted",
+    " Supprimer": " Delete",
+    " Note supprimée": " Note deleted",
     "Terminé": "Done",
   });
 
@@ -47,6 +46,9 @@
     .note { background: var(--note, #fff); break-inside: avoid; margin: 0 0 16px; border-radius: var(--rayon); padding: 14px 16px 12px; box-shadow: var(--ombre);
             cursor: pointer; position: relative; transition: transform .2s, box-shadow .2s; animation: apparait .35s both; border: 1.5px solid rgba(0,0,0,.04); color: #1f1a3a; color-scheme: light; }
     .note:hover { transform: none; }
+    .note { user-select: none; }
+    .note.glisse { opacity: .5; transform: scale(.98); }
+    .note.survol { outline: 2px solid var(--violet); outline-offset: 2px; }
     .note .titre { font-weight: 600; font-size: 15.5px; margin: 0 22px 6px 0; word-break: break-word; }
     .note .texte { white-space: pre-wrap; font-size: 14px; color: #3b3657; line-height: 1.45; max-height: 230px; overflow: hidden; word-break: break-word; }
     .note .epingle { position: absolute; top: 10px; right: 10px; font-size: 15px; }
@@ -106,8 +108,8 @@
     if (!n.rappel) return null;
     const d = new Date(n.rappel);
     const passe = d < new Date();
-    return el("span", { class: "chip" + (passe && n.rappel_fait ? " passe" : "") },
-      "⏰ " + d.toLocaleString(I18N.locale(), { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }));
+    return el("span", { class: "chip " + (passe && n.rappel_fait ? " passe" : "") },
+      d.toLocaleString(I18N.locale(), { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }));
   }
 
   async function charger() {
@@ -117,24 +119,36 @@
 
   function filtrees() {
     const q = N.recherche.toLowerCase();
-    return N.notes
+    let liste = N.notes
       .filter(n => N.filtre === "toutes" || (N.filtre === "listes" ? n.genre === "liste" : N.filtre === "rappels" ? n.rappel : true))
-      .filter(n => !q || [n.titre, n.texte, ...(n.elements || []).map(e => e.texte)].join(" ").toLowerCase().includes(q))
-      .sort((a, b) => (b.epinglee ? 1 : 0) - (a.epinglee ? 1 : 0) || (b.modifie || "").localeCompare(a.modifie || ""));
+      .filter(n => !q || [n.titre, n.texte, ...(n.elements || []).map(e => e.texte)].join(" ").toLowerCase().includes(q));
+    const ordre = S.config?.ordre_notes;
+    if (Array.isArray(ordre) && !q && N.filtre === "toutes") {
+      liste.sort((a, b) => {
+        const ia = ordre.indexOf(a.id), ib = ordre.indexOf(b.id);
+        if (ia >= 0 && ib >= 0) return ia - ib;
+        if (ia >= 0) return -1;
+        if (ib >= 0) return 1;
+        return (b.epinglee ? 1 : 0) - (a.epinglee ? 1 : 0) || (b.modifie || "").localeCompare(a.modifie || "");
+      });
+    } else {
+      liste.sort((a, b) => (b.epinglee ? 1 : 0) - (a.epinglee ? 1 : 0) || (b.modifie || "").localeCompare(a.modifie || ""));
+    }
+    return liste;
   }
 
   function carte(n, i) {
     const fond = n.couleur || "#ffffff";
     const corps = n.genre === "liste"
-      ? el("div", {}, (n.elements || []).slice(0, 8).map((e, j) => el("label", { class: "coche" + (e.fait ? " fait" : ""), onclick: ev => ev.stopPropagation() },
+      ? el("div", {}, (n.elements || []).slice(0, 8).map((e, j) => el("label", { class: "coche " + (e.fait ? " fait" : ""), onclick: ev => ev.stopPropagation() },
           el("input", { type: "checkbox", checked: e.fait ? "" : null, onchange: async ev => {
             n.elements[j].fait = ev.target.checked; await sauver(n); dessiner();
           } }), el("span", {}, brut(e.texte)))),
-          (n.elements || []).length > 8 ? el("div", { class: "chip" }, t("+ {n} autres", { n: n.elements.length - 8 })) : null)
+          (n.elements || []).length > 8 ? el("div", { class: "chip"}, t( " + {n} autres", { n: n.elements.length - 8 })) : null)
       : el("div", { class: "texte" }, brut(n.texte));
     const faits = (n.elements || []).filter(e => e.fait).length;
     return el("div", { class: "note", style: `--note:${fond}`, onclick: () => editer(n) },
-      n.epinglee ? el("span", { class: "epingle", title: "Épinglée" }, "📌") : null,
+      n.epinglee ? el("span", { class: "epingle", title: "Épinglée" }, icone("pin")) : null,
       n.titre ? el("div", { class: "titre" }, brut(n.titre)) : null,
       corps,
       el("div", { class: "bas" },
@@ -149,13 +163,13 @@
       oninput: e => { N.recherche = e.target.value; dessinerGrille(); } });
     r.replaceChildren(
       el("div", { class: "barre-vue" },
-        el("h2", {}, "📝 " + t("Mes notes") + " ", el("span", { class: "compte" }, String(N.notes.length))),
+        el("h2", {}, t("Mes notes") + " ", el("span", { class: "compte" }, String(N.notes.length))),
         el("div", { class: "puces" }, [["toutes", "Toutes"], ["listes", "Listes"], ["rappels", "Avec rappel"]].map(([v, libelle]) =>
-          el("button", { class: "puce" + (N.filtre === v ? " actif" : ""), onclick: () => { N.filtre = v; dessiner(); } }, libelle))),
+          el("button", { class: "puce " + (N.filtre === v ? " actif" : ""), onclick: () => { N.filtre = v; dessiner(); } }, libelle))),
         el("div", { class: "espace" }),
-        el("div", { class: "champ-recherche" }, el("span", {}, "🔎"), recherche),
+        el("div", { class: "champ-recherche" }, el("span", {}, icone("search")), recherche),
         el("button", { class: "btn principal", onclick: () => nouvelle("texte") }, "＋ Note"),
-        el("button", { class: "btn", onclick: () => nouvelle("liste") }, "☑️ Liste")),
+        el("button", { class: "btn", onclick: () => nouvelle("liste") }, " Liste")),
       el("div", { id: "grille-notes" }));
     dessinerGrille(liste);
   }
@@ -164,11 +178,46 @@
     const g = $("#grille-notes");
     if (!g) return;
     if (!liste.length) {
-      g.replaceChildren(el("div", { class: "notes-vide" }, el("div", {}, N.notes.length ? "🔍" : "🗒️"),
-        N.notes.length ? "Aucune note ne correspond." : "Pas encore de note. Une idée ? Notez-la ! ✍️"));
+      g.replaceChildren(el("div", { class: "notes-vide" }, el("div", {}, N.notes.length ? icone("search") : ""),
+        N.notes.length ? "Aucune note ne correspond." : "Pas encore de note. Une idée ? Notez-la ! "));
       return;
     }
-    g.replaceChildren(el("div", { class: "notes-grille" }, liste.map(carte)));
+    const grille = el("div", { class: "notes-grille" });
+    liste.forEach((n, i) => {
+      const card = carte(n, i);
+      card.setAttribute("draggable", "true");
+      card.addEventListener("dragstart", ev => {
+        ev.dataTransfer.effectAllowed = "move";
+        ev.dataTransfer.setData("text/plain", n.id);
+        card.classList.add("glisse");
+      });
+      card.addEventListener("dragend", () => {
+        card.classList.remove("glisse");
+        grille.querySelectorAll(".note").forEach(x => x.classList.remove("survol"));
+      });
+      card.addEventListener("dragover", ev => { ev.preventDefault(); ev.dataTransfer.dropEffect = "move"; card.classList.add("survol"); });
+      card.addEventListener("dragleave", () => card.classList.remove("survol"));
+      card.addEventListener("drop", ev => {
+        ev.preventDefault();
+        card.classList.remove("survol");
+        const fromId = ev.dataTransfer.getData("text/plain");
+        const toId = n.id;
+        if (fromId === toId) return;
+        const notes = [...N.notes];
+        const fromIdx = notes.findIndex(x => x.id === fromId);
+        const toIdx = notes.findIndex(x => x.id === toId);
+        if (fromIdx < 0 || toIdx < 0) return;
+        const moved = notes.splice(fromIdx, 1)[0];
+        notes.splice(toIdx, 0, moved);
+        N.notes = notes;
+        const ordre = notes.map(x => x.id);
+        if (S.config) S.config.ordre_notes = ordre;
+        api("/api/reglages/enregistrer", { ordre_notes: ordre }).catch(e => toast(e.message, "erreur"));
+        dessinerGrille();
+      });
+      grille.append(card);
+    });
+    g.replaceChildren(grille);
   }
 
   async function sauver(n) {
@@ -192,7 +241,7 @@
       clearTimeout(timer);
       timer = setTimeout(async () => {
         if (!n.titre && !n.texte && !(n.elements || []).some(e => e.texte)) { etat.textContent = ""; return; }
-        try { await sauver(n); etat.textContent = t("✓ Enregistré"); } catch (e) { etat.textContent = "⚠️ " + e.message; }
+        try { await sauver(n); etat.textContent = t(" Enregistré"); } catch (e) { etat.textContent = " " + e.message; }
       }, 500);
     };
     const boite = el("div", { class: "editeur-note" });
@@ -213,11 +262,11 @@
             if (ev.key === "Enter") { ev.preventDefault(); n.elements.splice(i + 1, 0, { texte: "", fait: false }); dessinerCorps(); planifier(); setTimeout(() => zoneCorps.querySelectorAll("input[type=text]")[i + 1]?.focus(), 10); }
             if (ev.key === "Backspace" && !e.texte && n.elements.length > 1) { ev.preventDefault(); n.elements.splice(i, 1); dessinerCorps(); planifier(); setTimeout(() => zoneCorps.querySelectorAll("input[type=text]")[Math.max(0, i - 1)]?.focus(), 10); }
           } });
-        liste.append(el("div", { class: "element" + (e.fait ? " fait" : "") },
+        liste.append(el("div", { class: "element " + (e.fait ? " fait" : "") },
           el("input", { type: "checkbox", tabindex: "-1", checked: e.fait ? "" : null, style: "accent-color:var(--menthe);width:17px;height:17px",
             onchange: ev => { e.fait = ev.target.checked; dessinerCorps(); planifier(); } }),
           champ,
-          el("button", { title: "Retirer", tabindex: "-1", onclick: () => { n.elements.splice(i, 1); if (!n.elements.length) n.elements.push({ texte: "", fait: false }); dessinerCorps(); planifier(); } }, "✕")));
+          el("button", { title: "Retirer", tabindex: "-1", onclick: () => { n.elements.splice(i, 1); if (!n.elements.length) n.elements.push({ texte: "", fait: false }); dessinerCorps(); planifier(); } }, icone("x"))));
       });
       liste.append(el("button", { class: "btn discret", onclick: () => { n.elements.push({ texte: "", fait: false }); dessinerCorps(); setTimeout(() => [...zoneCorps.querySelectorAll("input[type=text]")].at(-1)?.focus(), 10); } }, "＋ Ajouter un élément"));
       zoneCorps.replaceChildren(liste);
@@ -225,30 +274,30 @@
 
     const pastilles = el("div", { class: "pastilles-c" }, COULEURS_NOTE.map(c => el("button", { style: `background:${c}`, class: (n.couleur || "#ffffff") === c ? "choisi" : "", title: "Couleur",
       onclick: ev => { n.couleur = c; fenetreNote().style.setProperty("--note", c); [...pastilles.children].forEach(b => b.classList.toggle("choisi", b === ev.currentTarget)); planifier(); } })));
-    const epingle = el("button", { class: "btn" + (n.epinglee ? " actif" : ""), title: "Épingler en haut et sur l'accueil",
-      onclick: ev => { n.epinglee = !n.epinglee; ev.currentTarget.classList.toggle("actif", n.epinglee); planifier(); } }, "📌");
+    const epingle = el("button", { class: "btn " + (n.epinglee ? " actif" : ""), title: "Épingler en haut et sur l'accueil",
+      onclick: ev => { n.epinglee = !n.epinglee; ev.currentTarget.classList.toggle("actif", n.epinglee); planifier(); } }, icone("pin"));
     const rappel = el("input", { type: "datetime-local", value: n.rappel || "", title: "Rappel par la bulle",
       onchange: ev => { n.rappel = ev.target.value || null; n.rappel_fait = false; planifier(); } });
     const genre = el("button", { class: "btn discret", title: "Passer en liste à cocher / en texte", onclick: () => {
-      if (n.genre === "liste") { n.texte = (n.elements || []).map(e => (e.fait ? "✓ " : "") + e.texte).filter(Boolean).join("\n"); n.genre = "texte"; }
-      else { n.elements = (n.texte || "").split("\n").filter(l => l.trim()).map(l => ({ texte: l.replace(/^[-•*✓]\s*/, ""), fait: l.startsWith("✓") })); if (!n.elements.length) n.elements = [{ texte: "", fait: false }]; n.genre = "liste"; }
+      if (n.genre === "liste") { n.texte = (n.elements || []).map(e => (e.fait ? " " : "") + e.texte).filter(Boolean).join("\n"); n.genre = "texte"; }
+      else { n.elements = (n.texte || "").split("\n").filter(l => l.trim()).map(l => ({ texte: l.replace(/^[-•*✓]\s*/, ""), fait: l.startsWith(icone("check")) })); if (!n.elements.length) n.elements = [{ texte: "", fait: false }]; n.genre = "liste"; }
       dessinerCorps(); planifier();
-    } }, n.genre === "liste" ? "📄 En texte" : "☑️ En liste");
+    } }, n.genre === "liste" ? " En texte" : " En liste");
 
     boite.append(
       el("input", { class: "titre-note", placeholder: "Titre", value: n.titre || "", oninput: e => { n.titre = e.target.value; planifier(); },
         // Entrée ou Tab dans le titre : on passe au texte, ou au 1er élément de la liste.
         onkeydown: e => { if (e.key === "Enter" || (e.key === "Tab" && !e.shiftKey)) { e.preventDefault(); zoneCorps.querySelector("textarea, input[type=text]")?.focus(); } } }),
       zoneCorps,
-      el("div", { class: "outils-note" }, pastilles, epingle, el("span", { title: "Rappel" }, "⏰"), rappel, genre, etat),
+      el("div", { class: "outils-note" }, pastilles, epingle, el("span", { title: "Rappel" }, icone("clock")), rappel, genre, etat),
       el("div", { class: "actions" },
         !nouvelleNote || n.id ? el("button", { class: "btn discret", style: "margin-right:auto;color:var(--rouge)", onclick: async () => {
           if (!n.id) { fermer(); return; }
-          if (!(await confirmer("🗑️", "Supprimer cette note ?", "Elle disparaît définitivement.", "Supprimer"))) { editer(n); return; }
+          if (!(await confirmer(icone("trash-2"), "Supprimer cette note ?", "Elle disparaît définitivement.", "Supprimer"))) { editer(n); return; }
           await api("/api/notes/supprimer", { id: n.id });
           N.notes = N.notes.filter(x => x.id !== n.id);
-          dessiner(); toast("🗑️ Note supprimée");
-        } }, "🗑 Supprimer") : null,
+          dessiner(); toast("Note supprimée");
+        } }, " Supprimer") : null,
         el("button", { class: "btn principal", onclick: async () => {
           clearTimeout(timer);
           if (n.titre || n.texte || (n.elements || []).some(e => e.texte)) {
@@ -269,6 +318,6 @@
     observateur.observe($("#voile"), { attributes: true, attributeFilter: ["class"] });
   }
 
-  VUES.notes = { afficher: () => charger().catch(e => toast("😕 " + e.message, "erreur")), nouvelle,
-    titre: "Notes", icone: "📝", groupe: "quotidien", ordre: 20 };
+  VUES.notes = { afficher: () => charger().catch(e => toast(e.message, "erreur")), nouvelle,
+    titre: "Notes", icone: "", groupe: "quotidien", ordre: 20 };
 })();
