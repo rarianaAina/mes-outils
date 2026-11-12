@@ -7,11 +7,15 @@
 <script src="/js/i18n.js"></script>
 <script src="/js/icones.js"></script>
 <script>
-  // Thème appliqué avant le premier affichage (pas d'éclair blanc).
+  // Thème et accent appliqués avant le premier affichage (pas d'éclair blanc).
   (() => { let c = "auto"; try { c = localStorage.getItem("mes-outils-theme") || "auto"; } catch {}
     const f = new URLSearchParams(location.search).get("theme");
-    const sombre = f ? f === "sombre" : c === "sombre" || (c === "auto" && matchMedia("(prefers-color-scheme: dark)").matches);
-    document.documentElement.dataset.theme = sombre ? "sombre" : "clair"; })();
+    let nom = f || c;
+    if (nom === "auto") nom = matchMedia("(prefers-color-scheme: dark)").matches ? "sombre" : "clair";
+    if (!["clair", "sombre", "sepia", "contraste"].includes(nom)) nom = "clair";
+    document.documentElement.dataset.theme = nom;
+    try { document.documentElement.dataset.accent = localStorage.getItem("mes-outils-accent") || "violet"; } catch {}
+    try { document.documentElement.dataset.densite = localStorage.getItem("mes-outils-densite") || "confortable"; } catch {} })();
 </script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='6' fill='%235b5bd6'/><g fill='none' stroke='white' stroke-width='2'><rect x='6' y='6' width='5' height='5' rx='1'/><rect x='13' y='6' width='5' height='5' rx='1'/><rect x='6' y='13' width='5' height='5' rx='1'/><rect x='13' y='13' width='5' height='5' rx='1'/></g></svg>">
 <style>
@@ -45,6 +49,54 @@
     --ombre: 0 1px 2px rgba(0, 0, 0, .5);
     --ombre-forte: 0 16px 40px -12px rgba(0, 0, 0, .8), 0 0 0 1px rgba(255, 255, 255, .04);
   }
+  /* Sépia : papier chaud, tons bruns, accent terracotta. */
+  :root[data-theme="sepia"] {
+    color-scheme: light;
+    --fond: #f2ead9; --carte: #faf5ea; --surface: #eae0cb; --champ: #faf5ea; --champ-focus: #fdf9f0;
+    --encre: #3a3222; --doux: #6d6049; --gris: #9a8a6d; --ligne: #e3d8c0; --ligne-forte: #cec0a2;
+    --violet: #9a5b2e; --violet-2: #824c26; --violet-clair: #efe1ce; --sur-violet: #ffffff;
+    --corail: #bd5a35; --menthe: #2f8a5c; --ambre: #b07f18; --rouge: #b23a3a;
+    --vert-clair: #e3efe3; --vert-texte: #2f6b46; --rouge-clair: #f6e6e1; --rouge-texte: #a63a2e;
+    --ambre-clair: #f5e9cd; --ambre-texte: #7d5a12; --bleu-clair: #e0e7ef; --bleu-texte: #2f538f;
+    --code: #efe6d3; --code-texte: #3a3222; --verre: #faf5ea; --voile: rgba(58, 50, 34, .42);
+    --ombre: 0 1px 2px rgba(58, 50, 34, .07);
+    --ombre-forte: 0 12px 32px -12px rgba(58, 50, 34, .26), 0 1px 3px rgba(58, 50, 34, .08);
+  }
+  /* Contrasté : noir et blanc, bordures nettes (accessibilité). */
+  :root[data-theme="contraste"] {
+    color-scheme: dark;
+    --fond: #000000; --carte: #0a0a0a; --surface: #171717; --champ: #050505; --champ-focus: #0a0a0a;
+    --encre: #ffffff; --doux: #d8d8d8; --gris: #adadad; --ligne: #4d4d4d; --ligne-forte: #6e6e6e;
+    --violet: #c9cbff; --violet-2: #b6b9ff; --violet-clair: #1f2140; --sur-violet: #000000;
+    --corail: #ffb3a0; --menthe: #60e9b2; --ambre: #ffd36b; --rouge: #ff9e9e;
+    --vert-clair: #0a2b1d; --vert-texte: #80f2be; --rouge-clair: #311212; --rouge-texte: #ffb8b8;
+    --ambre-clair: #2b2109; --ambre-texte: #ffe08d; --bleu-clair: #0e2039; --bleu-texte: #b6d4ff;
+    --code: #0a0a0a; --code-texte: #ffffff; --verre: #0a0a0a; --voile: rgba(0, 0, 0, .82);
+    --ombre: 0 0 0 1px rgba(255, 255, 255, .16);
+    --ombre-forte: 0 0 0 1px rgba(255, 255, 255, .32), 0 16px 40px -12px rgba(0, 0, 0, .9);
+  }
+  /* Accent personnalisable (la couleur d'accent, indépendante du thème). */
+  :root:not([data-theme="sombre"])[data-accent="bleu"] { --violet: #2f7ae5; --violet-2: #2564c4; --violet-clair: #e9f0fd; --sur-violet: #ffffff; }
+  :root:not([data-theme="sombre"])[data-accent="vert"] { --violet: #12a37a; --violet-2: #0e8564; --violet-clair: #e7f6ef; --sur-violet: #ffffff; }
+  :root:not([data-theme="sombre"])[data-accent="corail"] { --violet: #e5603e; --violet-2: #c54c2e; --violet-clair: #fdeee9; --sur-violet: #ffffff; }
+  :root:not([data-theme="sombre"])[data-accent="rose"] { --violet: #d6457a; --violet-2: #b83664; --violet-clair: #fceaf1; --sur-violet: #ffffff; }
+  :root[data-theme="sombre"][data-accent="bleu"] { --violet: #8fb6ff; --violet-2: #a9c8ff; --violet-clair: #13213a; --sur-violet: #0d0d18; }
+  :root[data-theme="sombre"][data-accent="vert"] { --violet: #62d6a2; --violet-2: #85e0b8; --violet-clair: #102a20; --sur-violet: #0d0d18; }
+  :root[data-theme="sombre"][data-accent="corail"] { --violet: #f08060; --violet-2: #f59a80; --violet-clair: #301619; --sur-violet: #0d0d18; }
+  :root[data-theme="sombre"][data-accent="rose"] { --violet: #f08bb4; --violet-2: #f5a3c2; --violet-clair: #30121f; --sur-violet: #0d0d18; }
+  /* Densité : mode compact (espacements réduits). */
+  :root[data-densite="compact"] { --rayon: 8px; }
+  :root[data-densite="compact"] .tuile { padding: 8px 10px; }
+  :root[data-densite="compact"] .carte { padding: 12px; }
+  :root[data-densite="compact"] .carte-jour { padding: 8px 10px; }
+  :root[data-densite="compact"] .serveur { padding: 8px 10px; gap: 8px; }
+  :root[data-densite="compact"] .ligne { padding: 5px 10px; min-height: 40px; }
+  :root[data-densite="compact"] .vide { padding: 20px 16px; }
+  :root[data-densite="compact"] .tuiles, :root[data-densite="compact"] .serveurs, :root[data-densite="compact"] .aujourdhui { gap: 8px; }
+  :root[data-densite="compact"] .corps { gap: 16px; }
+  :root[data-densite="compact"] main { padding: 12px 0 16px; }
+  :root[data-densite="compact"] h2 { margin: 18px 0 8px; }
+  :root[data-densite="compact"] .carte-reg { padding: 12px 14px; }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
   html, body { margin: 0; min-height: 100%; }
@@ -72,13 +124,15 @@
 
   /* Menu (dock) ----------------------------------------------------------- */
   .menu { position: sticky; top: var(--entete); height: calc(100vh - var(--entete)); width: 216px; flex: none;
-    display: flex; flex-direction: column; gap: 1px; overflow: hidden;
+    display: flex; flex-direction: column; gap: 1px; overflow-y: auto; overflow-x: hidden;
     background: var(--carte); border-right: 1px solid var(--ligne); padding: 12px 10px; }
   .menu .groupe.bas { margin-top: auto; }
   .menu .groupe { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--gris); font-weight: 600; margin: 14px 10px 4px; }
   .menu .groupe:first-child { margin-top: 2px; }
   .menu button { border: 0; background: transparent; height: 32px; padding: 0 10px; border-radius: 6px; font-size: 13.5px; cursor: pointer; font-weight: 500; color: var(--doux);
-    display: flex; align-items: center; gap: 10px; text-align: left; white-space: nowrap; position: relative; flex: none; transition: background .12s, color .12s; }
+    display: flex; align-items: center; gap: 10px; text-align: left; white-space: nowrap; position: relative; flex: none; transition: background .12s, color .12s; user-select: none; }
+  .menu button.glisse { opacity: .5; }
+  .menu button.survol { background: var(--violet-clair); color: var(--violet); }
   .menu button .ic { width: 18px; display: grid; place-items: center; flex: none; font-size: 16px; }
   .menu button .ic svg.ico { width: 17px; height: 17px; margin: 0; }
   .menu button .lib { flex: 1; overflow: hidden; text-overflow: ellipsis; }
@@ -145,20 +199,21 @@
 
   /* Boutons ---------------------------------------------------------- */
   .btn {
-    border: 1px solid var(--ligne); border-radius: 7px; height: 32px; padding: 0 12px; cursor: pointer; font-weight: 500; font-size: 13.5px; background: var(--carte);
+    border: 1px solid var(--ligne); border-radius: 8px; height: 32px; padding: 0 14px; cursor: pointer; font-weight: 500; font-size: 13.5px; background: var(--carte);
     box-shadow: var(--ombre); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; color: var(--encre);
-    transition: background .12s, border-color .12s, color .12s;
+    transition: background .15s, border-color .15s, color .15s, transform .15s var(--ressort);
   }
   .btn svg.ico.av { margin-right: 0; }
   .btn:hover { background: var(--surface); border-color: var(--ligne-forte); }
-  .btn:active { background: var(--ligne); }
+  .btn:active { background: var(--ligne); transform: scale(.985); }
+  .btn:disabled { transform: none; }
   .btn.principal { background: var(--violet); color: var(--sur-violet); border-color: var(--violet); }
   .btn.principal:hover { background: var(--violet-2); border-color: var(--violet-2); }
   .btn.danger { background: var(--rouge); color: #fff; border-color: var(--rouge); }
   .btn.actif { background: var(--violet-clair); color: var(--violet); border-color: color-mix(in srgb, var(--violet) 40%, transparent); }
   .btn.discret { background: transparent; box-shadow: none; border-color: transparent; color: var(--doux); }
   .btn.discret:hover { background: var(--surface); color: var(--encre); }
-  .btn.petit { height: 28px; padding: 0 9px; font-size: 12.5px; border-radius: 6px; }
+  .btn.petit { height: 28px; padding: 0 9px; font-size: 12.5px; border-radius: 7px; }
   .btn:disabled { opacity: .45; cursor: default; }
   .icone-btn { width: 30px; height: 30px; border-radius: 7px; border: 1px solid transparent; cursor: pointer; background: transparent; color: var(--doux); font-size: 15px;
     display: grid; place-items: center; flex: none; transition: background .12s, color .12s; }
@@ -172,8 +227,8 @@
   main input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]),
   main select, main textarea, .fenetre input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]),
   .fenetre select, .fenetre textarea {
-    border: 1px solid var(--ligne); border-radius: 7px; padding: 7px 10px; background: var(--champ); outline: none; color: var(--encre);
-    transition: border-color .12s, box-shadow .12s;
+    border: 1px solid var(--ligne); border-radius: 8px; padding: 8px 12px; background: var(--champ); outline: none; color: var(--encre);
+    transition: border-color .15s var(--ressort), box-shadow .15s var(--ressort), background .15s;
   }
   main input:focus, main select:focus, main textarea:focus, .fenetre input:focus, .fenetre select:focus, .fenetre textarea:focus {
     border-color: var(--violet); background: var(--champ-focus); box-shadow: 0 0 0 3px color-mix(in srgb, var(--violet) 18%, transparent);
@@ -186,12 +241,13 @@
   h2 .espace { flex: 1; }
 
   /* Tuiles des outils ------------------------------------------------ */
-  .tuiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+  .tuiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(250px, 100%), 1fr)); gap: 10px; }
   .tuile {
-    position: relative; border: 1px solid var(--ligne); text-align: left; cursor: pointer; padding: 12px 14px; border-radius: var(--rayon); min-height: 64px; color: var(--encre);
-    background: var(--carte); display: grid; grid-template-columns: 32px minmax(0, 1fr); column-gap: 12px; align-content: center; transition: border-color .12s, background .12s;
+    position: relative; border: 1px solid var(--ligne); text-align: left; cursor: pointer; padding: 12px 14px; border-radius: 12px; min-height: 64px; color: var(--encre);
+    background: var(--carte); display: grid; grid-template-columns: 32px minmax(0, 1fr); column-gap: 12px; align-content: center;
+    box-shadow: var(--ombre); transition: border-color .15s var(--ressort), background .15s var(--ressort), box-shadow .15s var(--ressort);
   }
-  .tuile:hover { border-color: var(--ligne-forte); background: var(--surface); }
+  .tuile:hover { border-color: var(--ligne-forte); background: var(--surface); box-shadow: var(--ombre-forte); }
   .tuile .emoji {
     grid-row: span 3; align-self: center; width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center;
     background: color-mix(in srgb, var(--c) 13%, var(--carte)); color: var(--c);
@@ -207,6 +263,9 @@
   .tuile .actions-edition { position: absolute; top: 8px; right: 8px; display: none; gap: 4px; z-index: 2; }
   .edition .tuile:not(.ajout) { outline: 1px dashed var(--violet); outline-offset: 2px; }
   .edition .tuile .actions-edition { display: flex; }
+  .tuile.glisse { opacity: .5; transform: scale(.98); cursor: grabbing; }
+  .tuile.survol { outline: 2px solid var(--violet); outline-offset: 2px; }
+  .edition .tuile:not(.ajout) { cursor: grab; }
   .rond { width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--ligne); cursor: pointer; display: grid; place-items: center; background: var(--carte); color: var(--doux); }
   .rond svg.ico { margin: 0; width: 14px; height: 14px; }
   .rond.suppr:hover { background: var(--rouge-clair); color: var(--rouge-texte); }
@@ -219,10 +278,12 @@
   @keyframes clignote { to { opacity: .35; } }
 
   /* Serveurs ------------------------------------------------------------ */
-  .serveurs { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 10px; }
+  .serveurs { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(360px, 100%), 1fr)); gap: 10px; }
   .serveur {
-    background: var(--carte); border: 1px solid var(--ligne); border-radius: var(--rayon); box-shadow: var(--ombre); padding: 10px 12px; display: flex; align-items: center; gap: 12px;
+    background: var(--carte); border: 1px solid var(--ligne); border-radius: 12px; box-shadow: var(--ombre); padding: 10px 12px; display: flex; align-items: center; gap: 12px;
+    transition: border-color .15s var(--ressort), box-shadow .15s var(--ressort);
   }
+  .serveur:hover { border-color: var(--ligne-forte); box-shadow: var(--ombre-forte); }
   .serveur .pastille { width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center; background: var(--surface); color: var(--doux); flex: none; position: relative; font-size: 17px; }
   .serveur .pastille svg.ico { margin: 0; width: 17px; height: 17px; }
   .serveur .pastille .point { position: absolute; right: -2px; bottom: -2px; border: 2px solid var(--carte); width: 12px; height: 12px; }
@@ -236,17 +297,19 @@
   .etiquette.vert { background: var(--vert-clair); color: var(--vert-texte); }
   .etiquette.ambre { background: var(--ambre-clair); color: var(--ambre-texte); }
   .etiquette.violet { background: var(--violet-clair); color: var(--violet); }
-  .vide { background: transparent; border: 1px dashed var(--ligne-forte); border-radius: var(--rayon); padding: 28px; color: var(--doux); text-align: center; }
+  .vide { background: transparent; border: 1px dashed var(--ligne-forte); border-radius: 12px; padding: 32px 28px; color: var(--doux); text-align: center; }
   .vide svg.ico { width: 22px; height: 22px; display: block; margin: 0 auto 8px; color: var(--gris); }
-  .carte { background: var(--carte); border: 1px solid var(--ligne); border-radius: var(--rayon); box-shadow: var(--ombre); padding: 16px; }
+  .carte { background: var(--carte); border: 1px solid var(--ligne); border-radius: 12px; box-shadow: var(--ombre); padding: 16px; transition: box-shadow .15s var(--ressort), border-color .15s; }
+  .carte:hover { border-color: var(--ligne-forte); }
   .squelette { border-radius: 8px; min-height: 60px; background: linear-gradient(90deg, var(--surface) 25%, var(--ligne) 50%, var(--surface) 75%); background-size: 200% 100%; animation: miroite 1.2s infinite; }
   @keyframes miroite { to { background-position: -200% 0; } }
 
   /* Fenêtres, messages ------------------------------------------------- */
-  .voile { position: fixed; inset: 0; background: var(--voile); display: none; place-items: center; z-index: 40; }
+  .voile { position: fixed; inset: 0; background: var(--voile); display: none; place-items: center; z-index: 40; backdrop-filter: blur(8px) saturate(120%); -webkit-backdrop-filter: blur(8px) saturate(120%); }
   .voile.visible { display: grid; animation: fondu .12s both; }
   @keyframes fondu { from { opacity: 0; } }
-  .fenetre { width: min(540px, 94vw); max-height: 92vh; overflow: auto; background: var(--carte); color: var(--encre); border: 1px solid var(--ligne); border-radius: 12px; padding: 22px; box-shadow: var(--ombre-forte); animation: pop .14s ease-out both; }
+  .fenetre { position: relative; width: min(540px, 94vw); max-height: 92vh; overflow: auto; background: var(--carte); color: var(--encre); border: 1px solid var(--ligne); border-radius: 14px; padding: 22px; box-shadow: var(--ombre-forte); animation: pop .18s var(--ressort) both; }
+  .fenetre-ferme { position: absolute; top: 12px; right: 12px; z-index: 2; }
   .fenetre.petite { width: min(420px, 92vw); }
   .fenetre .gros { width: 38px; height: 38px; border-radius: 9px; background: var(--surface); color: var(--doux); display: grid; place-items: center; font-size: 20px; margin-bottom: 4px; }
   .fenetre .gros:empty { display: none; }
@@ -275,8 +338,12 @@
   .apercu-tuile .tuile { width: 280px; cursor: default; }
 
   #toasts { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; z-index: 60; align-items: center; pointer-events: none; }
-  .toast { background: var(--encre); color: var(--fond); padding: 9px 14px; border-radius: 8px; box-shadow: var(--ombre-forte); font-weight: 500; font-size: 13.5px;
-    display: flex; align-items: center; gap: 8px; animation: pop .14s ease-out both; max-width: 560px; }
+  .toast { background: var(--encre); color: var(--fond); padding: 9px 14px; border-radius: 10px; box-shadow: var(--ombre-forte); font-weight: 500; font-size: 13.5px;
+    display: flex; align-items: center; gap: 8px; animation: pop .18s var(--ressort) both; max-width: 560px; }
+  .toast-ferme { width: 22px; height: 22px; border: 0; background: transparent; color: var(--fond); opacity: .7; cursor: pointer; border-radius: 50%;
+    display: grid; place-items: center; flex: none; transition: opacity .12s, background .12s; margin-left: 4px; }
+  .toast-ferme svg.ico { margin: 0; width: 13px; height: 13px; }
+  .toast-ferme:hover { opacity: 1; background: rgba(255, 255, 255, .16); }
   .toast svg.ico { margin: 0; }
   .toast.erreur svg.ico { color: var(--rouge); }
   .toast.succes svg.ico { color: var(--menthe); }
@@ -290,9 +357,10 @@
   .vue.actif { display: block; animation: apparait .15s ease-out both; }
 
   /* Aujourd'hui (accueil) ----------------------------------------------- */
-  .aujourdhui { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-bottom: 4px; }
-  .carte-jour { background: var(--carte); border: 1px solid var(--ligne); border-radius: var(--rayon); padding: 12px 14px; cursor: pointer; transition: border-color .12s, background .12s; }
-  .carte-jour:hover { border-color: var(--ligne-forte); background: var(--surface); }
+  .aujourdhui { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 10px; margin-bottom: 4px; }
+  .carte-jour { background: var(--carte); border: 1px solid var(--ligne); border-radius: 12px; padding: 12px 14px; cursor: pointer; box-shadow: var(--ombre);
+    transition: border-color .15s var(--ressort), background .15s var(--ressort), box-shadow .15s var(--ressort); }
+  .carte-jour:hover { border-color: var(--ligne-forte); background: var(--surface); box-shadow: var(--ombre-forte); }
   .carte-jour h4 { margin: 0 0 8px; font-size: 11.5px; font-weight: 600; color: var(--gris); text-transform: uppercase; letter-spacing: .04em; display: flex; gap: 6px; align-items: center; }
   .carte-jour h4 svg.ico { color: var(--gris); margin: 0; width: 14px; height: 14px; }
   .carte-jour .ligne-jour { display: flex; gap: 10px; align-items: center; padding: 2px 0; font-size: 13.5px; }
@@ -308,7 +376,7 @@
   .barre-vue h2 svg.ico { color: var(--doux); }
   .barre-vue .espace { flex: 1; }
   .champ-recherche { position: relative; }
-  .champ-recherche input { padding-left: 32px !important; width: 260px; }
+  .champ-recherche input { padding-left: 32px !important; width: 260px; max-width: 100%; }
   .champ-recherche span { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--gris); pointer-events: none; display: flex; }
   .champ-recherche span svg.ico { margin: 0; }
   .puces { display: inline-flex; gap: 2px; flex-wrap: wrap; background: var(--surface); border: 1px solid var(--ligne); padding: 2px; border-radius: 8px; }
@@ -371,6 +439,19 @@
   .etat-txt.vert { color: var(--vert-texte); } .etat-txt.rouge { color: var(--rouge-texte); }
   .etat-txt.ambre { color: var(--ambre-texte); } .etat-txt.gris { color: var(--gris); }
 
+  /* Tactile (pas de survol) : les actions des lignes restent visibles. */
+  @media (hover: none) {
+    .ligne-actions { opacity: 1; }
+  }
+  /* Cibles tactiles : zone cliquable d'au moins 44 px sur écran tactile
+     (le bureau, à la souris, garde ses tailles compactes). */
+  @media (pointer: coarse) {
+    .icone-btn, .rond { min-width: 44px; min-height: 44px; }
+    .puce, .btn, .btn.petit { min-height: 44px; }
+    .types button { min-height: 52px; }
+    .emojis button { min-height: 44px; }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
   }
@@ -431,7 +512,7 @@
   <div class="resultats" id="palette-resultats"></div>
   <div class="pied"><span><kbd>↑</kbd> <kbd>↓</kbd> choisir</span><span><kbd>Entrée</kbd> ouvrir</span><span><kbd>Échap</kbd> fermer</span></div>
 </div></div>
-<div id="toasts"></div>
+<div id="toasts" aria-live="polite"></div>
 
 <script>
 "use strict";
@@ -513,8 +594,8 @@ function traiterEmojis(racine) {
   const noeuds = [];
   while (marcheur.nextNode()) noeuds.push(marcheur.currentNode);
   noeuds.forEach(remplacerEmojis);
-  for (const e of [racine, ...racine.querySelectorAll("[title],[placeholder]")]) {
-    for (const a of ["title", "placeholder"]) if (e.hasAttribute?.(a)) {
+  for (const e of [racine, ...racine.querySelectorAll("[title],[placeholder],[aria-label]")]) {
+    for (const a of ["title", "placeholder", "aria-label"]) if (e.hasAttribute?.(a)) {
       const v = e.getAttribute(a), propre = sansEmoji(v);
       if (propre !== v) e.setAttribute(a, propre);
     }
@@ -528,7 +609,7 @@ new MutationObserver(mutations => {
 }).observe(document.documentElement, { childList: true, subtree: true, characterData: true });
 document.addEventListener("DOMContentLoaded", () => traiterEmojis(document.body));
 // S.systeme : "windows" ou "linux" (donné par /api/onglets).
-const S = { config: null, edition: false, serveurs: null, systeme: "windows" };
+const S = { config: null, edition: false, serveurs: null, systeme: "windows", accent: "violet", densite: "confortable" };
 /** Vrai quand Mes outils tourne sous Linux. */
 const surLinux = () => S.systeme === "linux";
 /** Le texte qui convient au système : selonSysteme("…Windows…", "…Linux…"). */
@@ -580,9 +661,11 @@ function el(tag, attrs = {}, ...enfants) {
     else if (k === "style") e.setAttribute("style", v);
     else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
     else if (k === "value") e.value = v;
-    else if (k === "title" || k === "placeholder") e.setAttribute(k, I18N.traduire(String(v)));
+    else if (k === "title" || k === "placeholder" || k === "aria-label") e.setAttribute(k, I18N.traduire(String(v)));
     else if (v !== false && v !== null && v !== undefined) e.setAttribute(k, v);
   }
+  // Un bouton sans texte (icône seule) : son nom accessible vient du title.
+  if (attrs.title && attrs["aria-label"] === undefined) e.setAttribute("aria-label", I18N.traduire(String(attrs.title)));
   // flat(Infinity) : une liste d'éléments peut en contenir d'autres (bloc
   // « Demain » de l'accueil) ; sans ça, elle s'affiche en texte brut.
   for (const c of enfants.flat(Infinity)) {
@@ -593,28 +676,56 @@ function el(tag, attrs = {}, ...enfants) {
 }
 function toast(message, type = "", duree = 3000) {
   const texte = sansEmoji(I18N.traduire(String(message))).replace(/[\p{Extended_Pictographic}]\uFE0F?/gu, "").trim();
+  let timer;
+  const retirer = () => { clearTimeout(timer); bloc.classList.add("part"); setTimeout(() => bloc.remove(), 300); };
   const bloc = el("div", { class: "toast " + type },
-    icone(type === "succes" ? "circle-check" : type === "erreur" ? "circle-alert" : "info"), el("span", { class: "sans-icone" }, texte));
+    icone(type === "succes" ? "circle-check" : type === "erreur" ? "circle-alert" : "info"),
+    el("span", { class: "sans-icone" }, texte),
+    el("button", { class: "toast-ferme", type: "button", title: "Fermer", "aria-label": "Fermer", onclick: retirer }, icone("x")));
+  timer = setTimeout(retirer, duree);
   $("#toasts").append(bloc);
-  setTimeout(() => { bloc.classList.add("part"); setTimeout(() => bloc.remove(), 300); }, duree);
 }
-function fenetre(contenu, petite = false) {
+// Le focus est rendu à cet élément quand la fenêtre se referme.
+let focusPrecedent = null;
+function fenetre(contenu, petite = false, onClose = fermer) {
   const f = $("#fenetre");
   f.className = "fenetre" + (petite ? " petite" : "");
   f.style.width = ""; f.style.background = "";  // une note ou un mail a pu les changer
-  f.replaceChildren(...contenu);
+  f.setAttribute("role", "dialog");
+  f.setAttribute("aria-modal", "true");
+  f.tabIndex = -1;
+  const ferme = el("button", { class: "icone-btn fenetre-ferme", type: "button", title: "Fermer", "aria-label": "Fermer", onclick: () => (onClose ? onClose() : fermer()) }, icone("x"));
+  f.replaceChildren(ferme, ...contenu);
+  focusPrecedent = document.activeElement;
   $("#voile").classList.add("visible");
+  const premier = [...f.querySelectorAll("button, input, select, textarea, [href], [tabindex]:not([tabindex='-1'])")].find(x => !x.classList.contains("fenetre-ferme"));
+  (premier || f).focus();
 }
-function fermer() { $("#voile").classList.remove("visible"); }
+function fermer() {
+  const voile = $("#voile");
+  if (!voile.classList.contains("visible")) return;
+  voile.classList.remove("visible");
+  if (focusPrecedent?.isConnected) { focusPrecedent.focus(); focusPrecedent = null; }
+}
 $("#voile").addEventListener("mousedown", e => { if (e.target.id === "voile") fermer(); });
-document.addEventListener("keydown", e => { if (e.key === "Escape") fermer(); });
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") { fermer(); return; }
+  if (e.key !== "Tab" || !$("#voile").classList.contains("visible")) return;
+  // La fenêtre est une modale : le focus reste piégé dedans.
+  const focusables = [...$("#fenetre").querySelectorAll("button, input, select, textarea, [href], [tabindex]:not([tabindex='-1'])")]
+    .filter(x => !x.disabled);
+  if (!focusables.length) return;
+  const premier = focusables[0], dernier = focusables[focusables.length - 1];
+  if (e.shiftKey && document.activeElement === premier) { e.preventDefault(); dernier.focus(); }
+  else if (!e.shiftKey && document.activeElement === dernier) { e.preventDefault(); premier.focus(); }
+});
 function confirmer(icone, titre, texte, oui = "Oui") {
   return new Promise(resolve => {
     const fin = v => { fermer(); resolve(v); };
     fenetre([el("div", { class: "gros" }, icone), el("h3", {}, I18N.traduire(titre)), el("p", {}, I18N.traduire(texte)),
       el("div", { class: "actions" },
         el("button", { class: "btn", onclick: () => fin(false) }, "Annuler"),
-        el("button", { class: "btn principal", onclick: () => fin(true) }, oui))], true);
+        el("button", { class: "btn principal", onclick: () => fin(true) }, oui))], true, () => fin(false));
   });
 }
 
@@ -674,7 +785,36 @@ function afficherTuiles() {
   const box = $("#tuiles");
   const outils = S.config.outils;
   box.classList.toggle("edition", S.edition);
-  box.replaceChildren(...outils.map((o, i) => { const t = tuile(o); t.style.animationDelay = `${i * 60}ms`; return t; }));
+  box.replaceChildren(...outils.map((o, i) => {
+    const t = tuile(o);
+    t.style.animationDelay = `${i * 60}ms`;
+    if (S.edition) {
+      t.setAttribute("draggable", "true");
+      t.addEventListener("dragstart", ev => {
+        ev.dataTransfer.effectAllowed = "move";
+        ev.dataTransfer.setData("text/plain", String(i));
+        t.classList.add("glisse");
+      });
+      t.addEventListener("dragend", () => {
+        t.classList.remove("glisse");
+        box.querySelectorAll(".tuile").forEach(x => x.classList.remove("survol"));
+      });
+      t.addEventListener("dragover", ev => { ev.preventDefault(); ev.dataTransfer.dropEffect = "move"; t.classList.add("survol"); });
+      t.addEventListener("dragleave", () => t.classList.remove("survol"));
+      t.addEventListener("drop", ev => {
+        ev.preventDefault();
+        t.classList.remove("survol");
+        const from = Number(ev.dataTransfer.getData("text/plain"));
+        const to = i;
+        if (isNaN(from) || from === to || from < 0 || from >= S.config.outils.length) return;
+        const moved = S.config.outils.splice(from, 1)[0];
+        S.config.outils.splice(to, 0, moved);
+        enregistrer().catch(e => toast("😕 " + e.message, "erreur"));
+        afficherTuiles();
+      });
+    }
+    return t;
+  }));
   if (S.edition || !outils.length) {
     box.append(el("button", { class: "tuile ajout", onclick: () => editer(null) },
       el("div", { class: "emoji" }, "➕"), "Ajouter un outil"));
@@ -685,7 +825,7 @@ async function lancer(outil, t) {
   t.classList.remove("lance"); void t.offsetWidth; t.classList.add("lance");
   try {
     await api("/api/lancer", { id: outil.id });
-    toast(`${outil.emoji || "🚀"} ${outil.nom} : ${I18N.t("c'est parti !")}`, "succes");
+    toast(t("{nom} lancé", { nom: outil.nom }), "succes");
     setTimeout(chargerOutils, 1500);
   } catch (e) { toast("😕 " + e.message, "erreur", 5500); }
 }
@@ -764,7 +904,7 @@ function editer(outil) {
     el("div", { class: "actions" },
       el("button", { class: "btn", onclick: fermer }, "Annuler"),
       el("button", { class: "btn principal", onclick: async () => {
-        if (!brouillon.nom.trim()) { toast("Donnez-lui un nom 😉", "erreur"); return; }
+        if (!brouillon.nom.trim()) { toast("Indiquez un nom", "erreur"); return; }
         if (!brouillon.cible) { toast("Indiquez ce qu'il faut ouvrir", "erreur"); return; }
         if (outil) {
           S.config.outils = S.config.outils.map(o => o.id === outil.id ? brouillon : o);
@@ -872,9 +1012,19 @@ const PROFILS = {
   assistant_virtuel: { titre: "Assistant(e) virtuel(le)", icone: "headset", detail: "Plusieurs clients, tâches, messages types." },
   assistant_direction: { titre: "Assistant(e) de direction", icone: "calendar-check", detail: "Agenda, réunions, déplacements, documents." },
   developpeur: { titre: "Développeur", icone: "code", detail: "Projets, serveurs, GitHub, outils techniques." },
+  comptable: { titre: "Comptable", icone: "calculator", detail: "Dépenses, factures, échéances, documents." },
+  redacteur: { titre: "Rédacteur", icone: "pencil", detail: "Notes, modèles de messages, contacts, tâches." },
+  designer: { titre: "Designer", icone: "palette", detail: "Projets, contacts, factures, temps passé." },
+  consultant: { titre: "Consultant", icone: "users", detail: "Clients, réunions, factures, temps passé." },
+  commercial: { titre: "Commercial", icone: "trending-up", detail: "Contacts, missions, factures, réunions." },
+  pharmacien: { titre: "Pharmacien", icone: "pill", detail: "Stock, clients, factures, documents." },
+  avocat: { titre: "Avocat", icone: "scale", detail: "Clients, dossiers, échéances, factures." },
+  architecte: { titre: "Architecte", icone: "ruler", detail: "Projets, clients, factures, documents." },
+  enseignant: { titre: "Enseignant", icone: "graduation-cap", detail: "Classes, notes, documents, agenda." },
+  medecin: { titre: "Médecin", icone: "stethoscope", detail: "Patients, rendez-vous, documents, factures." },
   personnalise: { titre: "Je choisis moi-même", icone: "settings", detail: "Partir de zéro et cocher ce qui sert." },
 };
-const TOUS_PROFILS = ["freelance", "assistant_virtuel", "assistant_direction", "developpeur"];
+const TOUS_PROFILS = ["freelance", "assistant_virtuel", "assistant_direction", "developpeur", "comptable", "redacteur", "designer", "consultant", "commercial", "pharmacien", "avocat", "architecte", "enseignant", "medecin"];
 // Applications toujours présentes (jamais désactivables).
 const APPS_FIXES = ["accueil", "applications", "reglages"];
 // Catalogue des applications écrites avant la page Applications : description,
@@ -889,6 +1039,16 @@ const CATALOGUE = {
   presse_papiers: { description: "Les derniers textes copiés, pour les retrouver en un clic.", profils: TOUS_PROFILS },
   extraits: { description: "Vos commandes et bouts de code favoris.", profils: ["developpeur"] },
   boite: { description: "JWT, JSON, Base64, UUID, expressions régulières…", profils: ["developpeur"] },
+  musique: { description: "Lecteur audio local : fichiers, playlist, play, pause, volume.", profils: ["developpeur", "freelance", "assistant_virtuel", "assistant_direction"] },
+  video: { description: "Visionneuse vidéo locale : fichiers, playlist, play, pause, volume.", profils: ["developpeur", "freelance", "assistant_virtuel", "assistant_direction"] },
+  convertisseur: { description: "Convertisseur d'unités : longueur, masse, température, volume, vitesse, données, temps.", profils: ["freelance", "assistant_virtuel", "assistant_direction", "developpeur", "comptable", "redacteur", "designer", "consultant", "commercial", "pharmacien", "avocat", "architecte", "enseignant", "medecin"] },
+  minuteur: { description: "Chronomètre et compte à rebours, avec tours et alarme.", profils: ["freelance", "assistant_virtuel", "assistant_direction", "developpeur", "comptable", "redacteur", "designer", "consultant", "commercial", "pharmacien", "avocat", "architecte", "enseignant", "medecin"] },
+  qrcode: { description: "Générer un QR code (texte, URL, Wi-Fi, contact) et le télécharger en SVG ou PNG.", profils: ["freelance", "assistant_virtuel", "assistant_direction", "developpeur", "comptable", "redacteur", "designer", "consultant", "commercial", "pharmacien", "avocat", "architecte", "enseignant", "medecin"] },
+  genmdp: { description: "Générateur de mots de passe sécurisés (longueur, types de caractères, force).", profils: ["freelance", "assistant_virtuel", "assistant_direction", "developpeur", "comptable", "redacteur", "designer", "consultant", "commercial", "pharmacien", "avocat", "architecte", "enseignant", "medecin"] },
+  hash: { description: "Hachage cryptographique (SHA-1, SHA-256, SHA-384, SHA-512) côté client.", profils: ["freelance", "assistant_virtuel", "assistant_direction", "developpeur", "comptable", "redacteur", "designer", "consultant", "commercial", "pharmacien", "avocat", "architecte", "enseignant", "medecin"] },
+  lorem: { description: "Générateur de texte de remplissage (Lorem ipsum) pour maquettes.", profils: ["freelance", "assistant_virtuel", "assistant_direction", "developpeur", "comptable", "redacteur", "designer", "consultant", "commercial", "pharmacien", "avocat", "architecte", "enseignant", "medecin"] },
+  palette: { description: "Générateur de palettes de couleurs (harmonies complémentaires, analogues, triadiques…).", profils: ["freelance", "assistant_virtuel", "assistant_direction", "developpeur", "comptable", "redacteur", "designer", "consultant", "commercial", "pharmacien", "avocat", "architecte", "enseignant", "medecin"] },
+  base64: { description: "Encodage et décodage Base64 côté client.", profils: ["freelance", "assistant_virtuel", "assistant_direction", "developpeur", "comptable", "redacteur", "designer", "consultant", "commercial", "pharmacien", "avocat", "architecte", "enseignant", "medecin"] },
   serveurs: { description: "Vos serveurs de dev et vos serveurs Odoo : démarrer, arrêter, journal.", profils: ["developpeur"] },
   projets: { description: "Vos projets : VS Code, terminal, serveurs de dev, état Git.", profils: ["developpeur"] },
   github: { description: "Dépôts, pull requests, issues, état des tests GitHub.", profils: ["developpeur"] },
@@ -902,13 +1062,23 @@ const SURCHARGES = { temps: { groupe: "clients", ordre: 40 }, presse_papiers: { 
   reunions: { titreMenu: "Réunions et trajets" } };
 // Onglets écrits avant le menu latéral (ils ne déclarent que afficher()).
 const ONGLETS_CONNUS = {
-  accueil: { titre: "Accueil", icone: "🏠", groupe: "quotidien", ordre: 0 },
-  mails: { titre: "Mails", icone: "✉️", groupe: "quotidien", ordre: 10 },
-  notes: { titre: "Notes", icone: "📝", groupe: "quotidien", ordre: 20 },
-  agenda: { titre: "Agenda", icone: "📅", groupe: "quotidien", ordre: 30 },
-  motsdepasse: { titre: "Mots de passe", icone: "🔐", groupe: "quotidien", ordre: 40 },
-  github: { titre: "GitHub", icone: "🐙", groupe: "dev", ordre: 20 },
-  ssh: { titre: "SSH", icone: "🔑", groupe: "dev", ordre: 60 },
+  accueil: { titre: "Accueil", icone: "house", groupe: "quotidien", ordre: 0 },
+  mails: { titre: "Mails", icone: "mail", groupe: "quotidien", ordre: 10 },
+  notes: { titre: "Notes", icone: "notebook-pen", groupe: "quotidien", ordre: 20 },
+  musique: { titre: "Musique", icone: "music", groupe: "outils", ordre: 10 },
+  video: { titre: "Vidéo", icone: "video", groupe: "outils", ordre: 20 },
+  convertisseur: { titre: "Convertisseur", icone: "repeat", groupe: "outils", ordre: 30 },
+  minuteur: { titre: "Minuteur", icone: "timer", groupe: "outils", ordre: 40 },
+  qrcode: { titre: "QR code", icone: "square", groupe: "outils", ordre: 50 },
+  genmdp: { titre: "Mot de passe", icone: "key", groupe: "outils", ordre: 55 },
+  hash: { titre: "Hash", icone: "hash", groupe: "outils", ordre: 60 },
+  lorem: { titre: "Lorem", icone: "type", groupe: "outils", ordre: 65 },
+  palette: { titre: "Palette", icone: "palette", groupe: "outils", ordre: 70 },
+  base64: { titre: "Base64", icone: "code", groupe: "outils", ordre: 75 },
+  agenda: { titre: "Agenda", icone: "calendar", groupe: "quotidien", ordre: 30 },
+  motsdepasse: { titre: "Mots de passe", icone: "lock", groupe: "quotidien", ordre: 40 },
+  github: { titre: "GitHub", icone: "git-branch", groupe: "dev", ordre: 20 },
+  ssh: { titre: "SSH", icone: "key-round", groupe: "dev", ordre: 60 },
 };
 VUES.accueil = { afficher: () => afficherAujourdhui() };
 function infosOnglet(nom) { return { ...(ONGLETS_CONNUS[nom] || {}), ...(CATALOGUE[nom] || {}), ...(VUES[nom] || {}), ...(SURCHARGES[nom] || {}) }; }
@@ -923,6 +1093,7 @@ function appActive(nom) {
 function listeOnglets() {
   return Object.keys(VUES).filter(n => $("#vue-" + n) && infosOnglet(n).titre).map(n => ({ nom: n, ...infosOnglet(n) }));
 }
+let _dernierGlisseMenu = 0;
 function construireMenu() {
   const parGroupe = {};
   for (const o of listeOnglets()) {
@@ -932,18 +1103,76 @@ function construireMenu() {
   const nav = $("#onglets");
   nav.replaceChildren();
   for (const g of Object.keys(GROUPES)) {
-    const liste = (parGroupe[g] || []).sort((a, b) => (a.ordre ?? 99) - (b.ordre ?? 99));
+    const liste = parGroupe[g] || [];
     if (!liste.length) continue;
+    // Ordre personnalisé (si défini dans les réglages), sinon par défaut.
+    const ordre = (S.config?.ordre_menu || {})[g];
+    if (Array.isArray(ordre)) {
+      liste.sort((a, b) => {
+        const ia = ordre.indexOf(a.nom), ib = ordre.indexOf(b.nom);
+        if (ia >= 0 && ib >= 0) return ia - ib;
+        if (ia >= 0) return -1;
+        if (ib >= 0) return 1;
+        return (a.ordre ?? 99) - (b.ordre ?? 99);
+      });
+    } else {
+      liste.sort((a, b) => (a.ordre ?? 99) - (b.ordre ?? 99));
+    }
     // « Mes outils » (Réglages) tout en bas du dock.
     nav.append(el("div", { class: "groupe" + (g === "systeme" ? " bas" : "") }, GROUPES[g]));
     for (const o of liste) {
       const titre = I18N.traduire(o.titre);
-      nav.append(el("button", { "data-vue": o.nom, title: titre, onclick: () => montrerVue(o.nom) },
+      const btn = el("button", { "data-vue": o.nom, title: titre,
+        draggable: "true",
+        onclick: () => {
+          // Un glisser-déposer vient de se terminer : ne pas ouvrir l'onglet.
+          if (Date.now() - _dernierGlisseMenu < 400) return;
+          montrerVue(o.nom);
+        },
+        ondragstart: ev => {
+          ev.dataTransfer.effectAllowed = "move";
+          ev.dataTransfer.setData("text/plain", JSON.stringify({ nom: o.nom, groupe: g }));
+          btn.classList.add("glisse");
+        },
+        ondragend: () => {
+          btn.classList.remove("glisse");
+          nav.querySelectorAll("button").forEach(x => x.classList.remove("survol"));
+        },
+        ondragover: ev => {
+          if (ev.dataTransfer.types.includes("text/plain")) {
+            ev.preventDefault();
+            ev.dataTransfer.dropEffect = "move";
+            btn.classList.add("survol");
+          }
+        },
+        ondragleave: () => btn.classList.remove("survol"),
+        ondrop: ev => {
+          ev.preventDefault();
+          btn.classList.remove("survol");
+          let payload;
+          try { payload = JSON.parse(ev.dataTransfer.getData("text/plain")); } catch { return; }
+          if (!payload || payload.groupe !== g) return;
+          const fromNom = payload.nom, toNom = o.nom;
+          if (fromNom === toNom) return;
+          const noms = liste.map(x => x.nom);
+          const fromIdx = noms.indexOf(fromNom), toIdx = noms.indexOf(toNom);
+          if (fromIdx < 0 || toIdx < 0) return;
+          noms.splice(fromIdx, 1);
+          noms.splice(toIdx, 0, fromNom);
+          const ordre = { ...(S.config?.ordre_menu || {}) };
+          ordre[g] = noms;
+          if (S.config) S.config.ordre_menu = ordre;
+          api("/api/reglages/enregistrer", { ordre_menu: ordre }).catch(e => toast("😕 " + e.message, "erreur"));
+          _dernierGlisseMenu = Date.now();
+          construireMenu();
+        }
+      },
         el("span", { class: "ic" }, iconeOnglet(o.icone)), el("span", { class: "lib" }, o.titreMenu ? I18N.traduire(o.titreMenu) : titre),
-        o.nom === "mails" ? el("span", { class: "compteur", id: "compteur-mails", hidden: "" }) : null));
+        o.nom === "mails" ? el("span", { class: "compteur", id: "compteur-mails", hidden: "" }) : null);
+      nav.append(btn);
     }
   }
-  if (S.vue) nav.querySelectorAll("button").forEach(b => b.classList.toggle("actif", b.dataset.vue === S.vue));
+  if (S.vue) marquerActif(S.vue);
   if (S.mailsNonLus) majCompteurMails(S.mailsNonLus);
   ajusterMenu();
 }
@@ -960,10 +1189,18 @@ function ajusterMenu() {
   }
 }
 addEventListener("resize", () => ajusterMenu());
+/** Marque l'onglet actif du menu (visuel + lecteur d'écran). */
+function marquerActif(nom) {
+  document.querySelectorAll("#onglets button").forEach(b => {
+    const actif = b.dataset.vue === nom;
+    b.classList.toggle("actif", actif);
+    if (actif) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
+  });
+}
 function montrerVue(nom) {
   if (!$("#vue-" + nom) || !VUES[nom]) nom = "accueil";
   document.querySelectorAll(".vue").forEach(v => v.classList.toggle("actif", v.id === "vue-" + nom));
-  document.querySelectorAll("#onglets button").forEach(b => b.classList.toggle("actif", b.dataset.vue === nom));
+  marquerActif(nom);
   S.vue = nom;
   try { VUES[nom]?.afficher(); } catch (e) { console.error(e); toast("😕 " + e.message, "erreur"); }
   history.replaceState(null, "", "#" + nom);
@@ -988,6 +1225,8 @@ async function demarrerOnglets() {
   // Le gadget complet « Serveurs Odoo » est un .bat : Windows seulement.
   if (surLinux()) $("#btn-gadget").hidden = true;
   appliquerTheme(info.theme || "auto");
+  appliquerAccent(info.accent || "violet");
+  appliquerDensite(info.densite || "confortable");
   for (const f of info.fichiers) {
     const nom = f.replace(/\.js$/, "");
     if (!$("#vue-" + nom)) $("#vues").insertBefore(el("section", { class: "vue", id: "vue-" + nom }), $("#vues > footer"));
@@ -1024,18 +1263,18 @@ async function afficherAujourdhui() {
     el("span", { class: "pastille-c", style: `background:${e.couleur || "#6c4cf5"}` }), e.titre ? document.createTextNode(e.titre) : "Rendez-vous");
   const cartes = [
     !appActive("agenda") ? null : el("div", { class: "carte-jour", style: "--accent:var(--violet)", onclick: () => montrerVue("agenda") },
-      el("h4", {}, "📅 Aujourd'hui"),
-      duJour.length ? duJour.map(ligneRdv) : el("div", { class: "rien" }, "Rien de prévu, profitez-en 🌴"),
+      el("h4", {}, icone("calendar"), "Aujourd'hui"),
+      duJour.length ? duJour.map(ligneRdv) : el("div", { class: "rien" }, "Rien de prévu"),
       deDemain.length ? [el("h4", { style: "margin-top:12px" }, "Demain"), deDemain.slice(0, 3).map(ligneRdv)] : null),
     !appActive("notes") ? null : el("div", { class: "carte-jour", style: "--accent:var(--ambre)", onclick: () => montrerVue("notes") },
-      el("h4", {}, "📌 Notes épinglées"),
+      el("h4", {}, icone("pin"), "Notes épinglées"),
       epinglees.length ? epinglees.map(n => el("div", { class: "ligne-jour" },
         el("span", { class: "pastille-c", style: `background:${n.couleur || "#ffb020"}` }), (n.titre || (n.texte || "").slice(0, 50)) ? document.createTextNode(n.titre || (n.texte || "").slice(0, 50)) : "Note"))
         : el("div", { class: "rien" }, "Épinglez une note pour la retrouver ici")),
   ].filter(Boolean);
   if (appActive("mails") && S.mailsNonLus !== undefined && S.mailsNonLus !== null) {
     cartes.push(el("div", { class: "carte-jour", style: "--accent:var(--corail)", onclick: () => montrerVue("mails") },
-      el("h4", {}, "✉️ Mails"),
+      el("h4", {}, icone("mail"), "Mails"),
       el("div", { class: "ligne-jour" }, el("span", { class: "heure", style: "font-size:26px" }, String(S.mailsNonLus)),
         S.mailsNonLus === 1 ? "mail non lu" : "mails non lus")));
   }
@@ -1078,7 +1317,7 @@ async function afficherAujourdhui() {
     const enRetard = etats.filter(g => g.retard > 0).length;
     const ligne = (icone, n, texte) => el("div", { class: "ligne-jour" }, el("span", { class: "heure" }, icone + " " + n), t(texte));
     dev.push(el("div", { class: "carte-jour carte-dev", style: "--accent:var(--menthe)", onclick: () => montrerVue("projets") },
-      el("h4", {}, "💻 " + t("Code")),
+      el("h4", {}, icone("laptop"), t("Code")),
       aEnvoyer || modifies || enRetard || ci?.nombre
         ? [aEnvoyer ? ligne("⬆️", aEnvoyer, aEnvoyer > 1 ? "projets à envoyer" : "projet à envoyer") : null,
            modifies ? ligne("✏️", modifies, modifies > 1 ? "projets modifiés" : "projet modifié") : null,
@@ -1090,7 +1329,7 @@ async function afficherAujourdhui() {
   if (chrono?.en_cours) {
     const depuis = Math.floor((chrono.secondes || 0) / 60);
     dev.push(el("div", { class: "carte-jour carte-dev", style: "--accent:var(--ambre)", onclick: () => montrerVue("temps") },
-      el("h4", {}, "⏱️ " + t("Chrono en cours")),
+      el("h4", {}, icone("timer"), t("Chrono en cours")),
       el("div", { class: "grand" }, `${Math.floor(depuis / 60)} h ${String(depuis % 60).padStart(2, "0")}`),
       el("div", { class: "ligne-jour" }, chrono.projet || "")));
   }
@@ -1165,6 +1404,7 @@ I18N.ajouter({
   "Aller à un onglet, lancer un outil, une action…": "Go to a tab, launch a tool, run an action…",
   "Thème clair ou sombre": "Light or dark theme", "Thème : automatique (comme Windows)": "Theme: automatic (like Windows)",
   "Thème : sombre": "Theme: dark", "Thème : clair": "Theme: light", "Thème sombre": "Dark theme", "Thème clair": "Light theme",
+  "Thème sépia": "Sepia theme", "Thème contrasté": "High contrast theme",
   "Thème automatique (comme Windows)": "Automatic theme (like Windows)", "Modifier les tuiles": "Edit the tiles",
   "Recharger la page": "Reload the page", "Onglets": "Tabs", "Mes outils": "My tools", "Actions": "Actions", "Rien trouvé": "Nothing found",
   "choisir": "select", "ouvrir": "open", "fermer": "close", "Entrée": "Enter", "Échap": "Esc",
@@ -1201,18 +1441,48 @@ I18N.motifs([[/^Trousseau du bureau inaccessible \((.*)\)\.$/, "Desktop keyring 
 // « auto » suit le système (Windows ou le bureau Linux) ; ?theme=sombre dans
 // l'adresse force un thème (captures).
 const texteThemeAuto = () => selonSysteme("Thème : automatique (comme Windows)", "Thème : automatique (comme le système)");
-const THEMES = ["auto", "clair", "sombre"];
+const THEMES = ["auto", "clair", "sombre", "sepia", "contraste"];
+const ICONES_THEMES = { auto: "sun-moon", clair: "sun", sombre: "moon", sepia: "book-open", contraste: "eye" };
+const NOMS_THEMES = { clair: "Thème clair", sombre: "Thème sombre", sepia: "Thème sépia", contraste: "Thème contrasté" };
 const sombreWindows = matchMedia("(prefers-color-scheme: dark)");
+function nomTheme(choix) {
+  // Le thème effectif (« auto » suit le système : clair ou sombre).
+  if (choix === "auto") return sombreWindows.matches ? "sombre" : "clair";
+  return THEMES.includes(choix) ? choix : "clair";
+}
 function appliquerTheme(choix) {
   if (!THEMES.includes(choix)) choix = "auto";
   S.theme = choix;
   const force = new URLSearchParams(location.search).get("theme");
-  const sombre = force ? force === "sombre" : choix === "sombre" || (choix === "auto" && sombreWindows.matches);
-  document.documentElement.dataset.theme = sombre ? "sombre" : "clair";
+  const nom = ["clair", "sombre", "sepia", "contraste"].includes(force) ? force : nomTheme(choix);
+  document.documentElement.dataset.theme = nom;
   const b = $("#btn-theme");
-  b.textContent = choix === "auto" ? "🌗" : sombre ? "🌙" : "☀️";
-  b.title = I18N.traduire(choix === "auto" ? texteThemeAuto() : sombre ? "Thème : sombre" : "Thème : clair");
+  b.replaceChildren(icone(ICONES_THEMES[choix] || "sun-moon"));
+  b.title = I18N.traduire(choix === "auto" ? texteThemeAuto() : NOMS_THEMES[choix] || ("Thème " + choix));
   try { localStorage.setItem("mes-outils-theme", choix); } catch {}
+}
+const ACCENTS = ["violet", "bleu", "vert", "corail", "rose"];
+const COULEURS_ACCENT = { violet: "#5b5bd6", bleu: "#2f7ae5", vert: "#12a37a", corail: "#e5603e", rose: "#d6457a" };
+function appliquerAccent(choix) {
+  if (!ACCENTS.includes(choix)) choix = "violet";
+  S.accent = choix;
+  document.documentElement.dataset.accent = choix === "violet" ? "" : choix;
+  try { localStorage.setItem("mes-outils-accent", choix); } catch {}
+}
+async function changerAccent(choix) {
+  appliquerAccent(choix);
+  try { await api("/api/reglages/enregistrer", { accent: choix }); } catch (e) { toast("😕 " + e.message, "erreur"); }
+}
+const DENSITES = ["confortable", "compact"];
+function appliquerDensite(choix) {
+  if (!DENSITES.includes(choix)) choix = "confortable";
+  S.densite = choix;
+  document.documentElement.dataset.densite = choix === "confortable" ? "" : choix;
+  try { localStorage.setItem("mes-outils-densite", choix); } catch {}
+}
+async function changerDensite(choix) {
+  appliquerDensite(choix);
+  try { await api("/api/reglages/enregistrer", { densite: choix }); } catch (e) { toast("😕 " + e.message, "erreur"); }
 }
 sombreWindows.addEventListener("change", () => { if (S.theme === "auto") appliquerTheme("auto"); });
 async function changerTheme(choix) {

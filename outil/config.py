@@ -51,9 +51,16 @@ DONNEES = os.path.join(BASE, "donnees")
 FICHIER_BULLE = os.path.join(BASE, "bulle.json")
 JOURNAL = os.path.join(BASE if GELE else ICI, "hub.log")
 LANGUES = ("fr", "en")
-THEMES = ("auto", "clair", "sombre")
+THEMES = ("auto", "clair", "sombre", "sepia", "contraste")
+ACCENTS = ("violet", "bleu", "vert", "corail", "rose")
+DENSITES = ("confortable", "compact")
+VUES_TACHES = ("liste", "tableau")
+PRIORITES_TACHES = ("basse", "normale", "haute")
+RAPPELS_AGENDA = ("", "0", "5", "15", "30", "60", "1440")
 # Métiers proposés au premier lancement (ils pré-cochent des applications).
-PROFILS = ("freelance", "assistant_virtuel", "assistant_direction", "developpeur", "personnalise")
+PROFILS = ("freelance", "assistant_virtuel", "assistant_direction", "developpeur",
+           "comptable", "redacteur", "designer", "consultant", "commercial",
+           "pharmacien", "avocat", "architecte", "enseignant", "medecin", "personnalise")
 # Toujours présentes, jamais désactivables.
 APPS_FIXES = ("accueil", "applications", "reglages")
 
@@ -162,6 +169,33 @@ def langue():
 def theme():
     valeur = lire().get("theme") or "auto"
     return valeur if valeur in THEMES else "auto"
+
+
+def accent():
+    valeur = lire().get("accent") or "violet"
+    return valeur if valeur in ACCENTS else "violet"
+
+
+def densite():
+    valeur = lire().get("densite") or "confortable"
+    return valeur if valeur in DENSITES else "confortable"
+
+
+def vue_taches():
+    valeur = lire().get("vue_taches") or "liste"
+    return valeur if valeur in VUES_TACHES else "liste"
+
+
+def priorite_taches():
+    valeur = lire().get("priorite_taches") or "normale"
+    return valeur if valeur in PRIORITES_TACHES else "normale"
+
+
+def rappel_agenda():
+    valeur = lire().get("rappel_agenda")
+    if valeur is None:
+        return "15"
+    return str(valeur) if str(valeur) in RAPPELS_AGENDA else "15"
 
 
 def app_active(nom):
