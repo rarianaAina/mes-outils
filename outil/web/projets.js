@@ -39,7 +39,7 @@
     "VS Code": "VS Code",
     "Terminal": "Terminal",
     "Commandes": "Commands",
-    "Ouvrir le dossier": "Open the folder",
+    "Ouvrir le dossier": "Open folder",
     "Ouvrir dans VS Code": "Open in VS Code",
     "Ouvrir un terminal dans le dossier": "Open a terminal in the folder",
     "Serveurs de dev et autres commandes": "Dev servers and other commands",
@@ -50,7 +50,7 @@
     "Afficher": "Show",
     "Masquer ce projet": "Hide this project",
     "Afficher ce projet": "Show this project",
-    "Retirer de la liste": "Remove from the list",
+    "Retirer de la liste": "Remove from list",
     "Projet masqué": "Project hidden",
     "Projet de nouveau affiché": "Project shown again",
     "Retirer ce projet ?": "Remove this project?",
@@ -89,7 +89,7 @@
     "Démarrer": "Start",
     "Arrêter": "Stop",
     "Redémarrer": "Restart",
-    "Journal": "Logs",
+    "Journal": "Log",
     "Ouvrir le site": "Open the site",
     "en marche": "running",
     "démarrage…": "starting…",
@@ -165,7 +165,7 @@
     "Action inconnue.": "Unknown action.",
     "Ce projet n'est pas un dépôt Git.": "This project is not a Git repository.",
     "Git n'est pas installé sur ce PC.": "Git is not installed on this PC.",
-    "Git met trop de temps à répondre.": "Git takes too long to answer.",
+    "Git met trop de temps à répondre.": "Git is taking too long to respond.",
     "git a échoué.": "git failed.",
     "git fetch a échoué.": "git fetch failed.",
     "Le serveur Git ne répond pas (délai dépassé).": "The Git server is not responding (timeout).",
@@ -269,7 +269,7 @@
 
   async function appel(action, donnees, message) {
     try {
-      const r = await api("/api/projets/" + action, donnees || {});
+      const r = await api("/api/projets/ " + action, donnees || {});
       if (message) toast(message, "succes");
       return r;
     } catch (e) { toast(e.message, "erreur", 7000); return null; }
@@ -343,7 +343,7 @@
     if (!puces || !zone) return;
     puces.replaceChildren(...FILTRES.filter(([v, , f]) => v !== "masques" || P.projets.some(f)).map(([v, libelle, f]) => {
       const n = P.projets.filter(f).length;
-      return el("button", { class: "puce" + (P.filtre === v ? " actif" : ""), onclick: () => { P.filtre = v; dessinerListe(); } },
+      return el("button", { class: "puce " + (P.filtre === v ? " actif" : ""), onclick: () => { P.filtre = v; dessinerListe(); } },
         libelle, v !== "tous" && n ? el("span", { class: "pj-puce-n" }, String(n)) : null);
     }));
     if (!P.projets.length) {
@@ -411,7 +411,7 @@
 
   function ligne(p) {
     const ouverte = P.ouvert === p.id;
-    return el("div", { class: "ligne cliquable pj-ligne" + (ouverte ? " ouverte" : "") + (p.masque ? " masque" : ""),
+    return el("div", { class: "ligne cliquable pj-ligne " + (ouverte ? " ouverte" : "") + (p.masque ? " masque" : ""),
         "data-id": p.id, tabindex: "0", role: "button", "aria-expanded": ouverte ? "true" : "false",
         onclick: () => basculer(p),
         onkeydown: ev => { if (ev.target === ev.currentTarget && (ev.key === "Enter" || ev.key === " ")) { ev.preventDefault(); basculer(p); } } },

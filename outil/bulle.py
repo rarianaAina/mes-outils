@@ -113,6 +113,10 @@ def module(nom):
 # ---------------------------------------------------------------------------
 _noyau = ctypes.WinDLL("kernel32", use_last_error=True) if systeme.WINDOWS else None
 _verrou_instance = None
+# Dernière ouverture du tableau de bord (secondes, time.time()) : garde-fou
+# pour éviter d'ouvrir une seconde fenêtre sur un double-clic rapide.
+_derniere_ouverture = 0.0
+_processus_tableau = None  # Popen du Chrome --app, pour éviter d'en ouvrir un second
 
 
 def chemin_verrou():
@@ -183,7 +187,7 @@ def ramener_fenetre_linux(titre):
     if not shutil.which("wmctrl"):
         return False
     try:
-        r = subprocess.run(["wmctrl", "-F", "-a", titre], capture_output=True, timeout=5,
+        r = subprocess.run(["wmctrl", "-F", "-a", titre], capture_output=True, timeout=2,
                            stdin=subprocess.DEVNULL)
     except (OSError, subprocess.SubprocessError):
         return False
@@ -192,12 +196,43 @@ def ramener_fenetre_linux(titre):
 
 def ouvrir_tableau(onglet=None):
     """Ramener le tableau de bord devant (ou l'ouvrir), sur un onglet donné."""
+    global _derniere_ouverture
     if onglet:
         hub.demander_onglet(onglet)  # la page déjà ouverte le lit d'elle-même
     adresse = f"http://{hub.HOTE}:{hub.PORT}/" + (f"#{onglet}" if onglet else "")
     if not systeme.WINDOWS:
-        if not ramener_fenetre_linux(TITRE_TABLEAU):
-            systeme.ouvrir_fenetre_appli(adresse, 1180, 800)
+        global _processus_tableau
+        # 1) Si wmctrl est installé, on ramène la fenêtre existante.
+        if ramener_fenetre_linux(TITRE_TABLEAU):
+            return
+        # 2) Sinon (cas GNOME/Wayland sans wmctrl) : si le Chrome --app
+        #    lancé précédemment tourne encore, on ne l'ouvre PAS une seconde
+        #    fois ; on tente juste de le faire passer au premier plan.
+        if _processus_tableau is not None:
+            try:
+                if _processus_tableau.poll() is None:
+                    # Processus vivant : ne pas en ouvrir un second.
+                    try:
+                        subprocess.Popen(["xdg-open", adresse], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    except (OSError, subprocess.SubprocessError):
+                        pass
+                    return
+            except (AttributeError, OSError):
+                pass
+            _processus_tableau = None
+        # 3) Garde-fou temporel : évite les doublons sur un double-clic rapide.
+        if time.time() - _derniere_ouverture < 10.0:
+            try:
+                subprocess.Popen(["xdg-open", adresse], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except (OSError, subprocess.SubprocessError):
+                pass
+            return
+        # Marquer comme ouverte AVANT de lancer Chrome, pour éviter la
+        # course si l'utilisateur clique deux fois très vite.
+        _derniere_ouverture = time.time()
+        proc = systeme.ouvrir_fenetre_appli(adresse, 1180, 800)
+        if isinstance(proc, subprocess.Popen):
+            _processus_tableau = proc
         return
     hwnd = trouver_fenetre(TITRE_TABLEAU)
     if hwnd:
@@ -751,9 +786,12 @@ class Bulle:
             noms = list(APPS_ALERTES) + sorted(hub.modules_connus() - set(APPS_ALERTES) - {"config"})
         except Exception:  # noqa: BLE001
             noms = list(APPS_ALERTES)
+        desactivees = set((hub.config.lire() or {}).get("notifications_desactivees") or [])
         for nom in noms:
             try:
                 if not hub.config.app_active(nom):
+                    continue
+                if nom in desactivees:
                     continue
                 mod = module(nom)
                 if not mod or not hasattr(mod, "alertes_dues"):
