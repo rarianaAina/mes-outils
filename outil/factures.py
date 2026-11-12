@@ -11,6 +11,8 @@
 - Montants : Decimal uniquement (jamais de float), arrondis à la devise
   (centime, ou unité pour l'ariary), arrondi commercial (0,5 → au-dessus).
   Remise globale répartie au prorata entre les taux de TVA, au centime près.
+- Taxes : TVA par ligne (France, Europe, Madagascar…), ou régime canadien
+  (TPS, TVQ, TVH, TVP selon la province) sur les lignes taxables.
 - PDF : HTML imprimable converti sans fenêtre par Microsoft Edge (Windows) ou
   Google Chrome / Chromium (Linux), enregistré
   dans Documents\\Mes outils\\Factures\\<année>\\.
@@ -37,9 +39,30 @@ import systeme
 
 NOM = "factures"
 TYPES = ("devis", "facture", "avoir")
-DEVISES = {"EUR": ("€", 2), "USD": ("$", 2), "MGA": ("Ar", 0)}
+DEVISES = {"EUR": ("€", 2), "USD": ("$", 2), "CAD": ("$", 2), "MGA": ("Ar", 0)}
 MODES_TVA = ("assujetti", "franchise", "libre")
 MENTION_293B = "TVA non applicable, art. 293 B du CGI"
+
+# Régimes de taxes : « tva » (un taux par ligne : France, Europe, Madagascar…)
+# ou « canada » (taxes fédérale et provinciale sur le même montant taxable).
+REGIMES = ("tva", "canada")
+# Taxes canadiennes : code français → nom anglais.
+TAXES_CANADA = {"TPS": "GST", "TVQ": "QST", "TVH": "HST", "TVP": "PST", "TVD": "RST"}
+# Taux par province (modifiables dans les réglages). La TVQ et les TVP se
+# calculent sur le prix avant taxes, jamais sur la TPS.
+PROVINCES = {
+    "QC": ("Québec", (("TPS", "5"), ("TVQ", "9.975"))),
+    "ON": ("Ontario", (("TVH", "13"),)),
+    "NS": ("Nouvelle-Écosse", (("TVH", "14"),)),
+    "NB": ("Nouveau-Brunswick", (("TVH", "15"),)),
+    "NL": ("Terre-Neuve-et-Labrador", (("TVH", "15"),)),
+    "PE": ("Île-du-Prince-Édouard", (("TVH", "15"),)),
+    "BC": ("Colombie-Britannique", (("TPS", "5"), ("TVP", "7"))),
+    "MB": ("Manitoba", (("TPS", "5"), ("TVD", "7"))),
+    "SK": ("Saskatchewan", (("TPS", "5"), ("TVP", "6"))),
+    "AB": ("Alberta", (("TPS", "5"),)),
+    "TERR": ("Yukon, Territoires du Nord-Ouest, Nunavut", (("TPS", "5"),)),
+}
 MOYENS = ("virement", "especes", "cheque", "carte", "mobile_money", "paypal", "autre")
 REMISES = ("aucune", "pourcent", "montant")
 EXTENSIONS_LOGO = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif", ".webp": "image/webp"}
@@ -57,6 +80,7 @@ PENALITES_FR = ("En cas de retard de paiement : pénalités au taux de trois foi
 ENTREPRISE_DEFAUT = {
     "nom": "", "adresse": "", "email": "", "telephone": "", "identifiants": [],
     "tva_mode": "assujetti", "tva_taux": "20", "tva_texte": "",
+    "regime": "tva", "province": "QC", "taxes": [],
     "logo": "", "iban": "", "bic": "", "paiement_autre": "",
     "delai_jours": 30, "validite_jours": 30, "penalites": "",
     "devise": "EUR", "devise_symbole": "", "devise_decimales": 2,
@@ -105,6 +129,8 @@ _ANGLAIS = {
     PENALITES_FR: "Late payment: interest at three times the legal interest rate and a fixed €40 recovery fee "
                   "(art. L441-10 of the French Commercial Code). No discount for early payment.",
     MENTION_293B: "VAT not applicable, art. 293 B of the French General Tax Code",
+    "Total avant taxes": "Total before tax", "Taxable": "Taxable", "Oui": "Yes", "Non": "No",
+    "{nom} ({t} %)": "{nom} ({t}%)", "N° {nom} : {numero}": "{nom} No.: {numero}",
 }
 
 LIBELLES_ETATS = {
@@ -286,6 +312,42 @@ def _iban(valeur):
     return iban
 
 
+def _taxes_canada(brut):
+    """(province, [{code, taux, numero}]) pour le régime canadien. Sans taxes
+    envoyées, celles de la province avec leurs taux habituels."""
+    province = str(brut.get("province") or "QC").upper()
+    if province not in PROVINCES:
+        raise ValueError("Province inconnue.")
+    recues = brut.get("taxes")
+    if not recues:
+        recues = [{"code": code, "taux": taux} for code, taux in PROVINCES[province][1]]
+    if not isinstance(recues, list) or len(recues) > 2:
+        raise ValueError("Deux taxes au plus.")
+    taxes, codes = [], set()
+    for x in recues:
+        x = x or {}
+        code = str(x.get("code") or "").upper()
+        if code not in TAXES_CANADA:
+            raise ValueError("Taxe inconnue.")
+        if code in codes:
+            raise ValueError("Une taxe est en double.")
+        codes.add(code)
+        taux = _decimal(x.get("taux") if x.get("taux") not in (None, "") else "0", f"Taux de la {code}",
+                        Decimal(0), Decimal(100), 3)
+        taxes.append({"code": code, "taux": _txt(taux), "numero": _court(x.get("numero"), 40)})
+    return province, taxes
+
+
+def canadien(entreprise):
+    """Vrai si l'entreprise (ou la photo d'un document émis) facture avec les taxes canadiennes."""
+    return entreprise.get("regime") == "canada"
+
+
+def nom_taxe(code):
+    """« TPS » en français, « GST » en anglais."""
+    return TAXES_CANADA.get(code, code) if config.langue() == "en" else code
+
+
 def valider_entreprise(brut):
     brut = brut or {}
     e = dict(ENTREPRISE_DEFAUT)
@@ -310,6 +372,12 @@ def valider_entreprise(brut):
     e["tva_texte"] = _long(brut.get("tva_texte"), 300)
     if mode == "libre" and not e["tva_texte"]:
         raise ValueError("Indiquez la mention de TVA.")
+    e["regime"] = brut.get("regime") or "tva"
+    if e["regime"] not in REGIMES:
+        raise ValueError("Régime de taxes inconnu.")
+    e["province"], e["taxes"] = _taxes_canada(brut) if e["regime"] == "canada" else ("QC", [])
+    if e["regime"] == "canada" and mode == "franchise":
+        raise ValueError("Au Canada, choisissez « Inscrit aux taxes » ou « Non inscrit ».")
     e["logo"] = _lire()["entreprise"].get("logo", "")
     e["iban"] = _iban(brut.get("iban"))
     e["bic"] = re.sub(r"\s+", "", str(brut.get("bic") or "")).upper()[:15]
@@ -411,7 +479,10 @@ def reglages():
         e["penalites"] = _texte(PENALITES_FR)  # proposition au premier réglage
     return {"entreprise": e, "logo_data": _logo_data(e.get("logo")), "configuree": configuree(d),
             "devise": devise_de(e), "prochains": {t: _prochain_numero(d, t, aujourdhui().year, e) for t in TYPES},
-            "mention_293b": MENTION_293B}
+            "mention_293b": MENTION_293B, "penalites_fr": _texte(PENALITES_FR),
+            "provinces": [{"code": code, "nom": nom, "taxes": [{"code": c, "taux": t} for c, t in taxes]}
+                          for code, (nom, taxes) in PROVINCES.items()],
+            "noms_taxes": {code: nom_taxe(code) for code in TAXES_CANADA}}
 
 
 # ---------------------------------------------------------------------------
@@ -436,8 +507,10 @@ def _ligne(brut, numero, taux_defaut):
     tva = _decimal(brut.get("tva") if brut.get("tva") not in (None, "") else taux_defaut,
                    f"{nom}, TVA", Decimal(0), Decimal(100), 2)
     sessions = [str(s)[:40] for s in (brut.get("sessions") or [])[:1000] if s]
+    # Régime canadien : la ligne est taxable (par défaut) ou non (exonérée, détaxée).
+    taxable = brut.get("taxable") is not False
     return {"designation": designation, "quantite": _txt(quantite), "unite": _court(brut.get("unite"), 20),
-            "prix": _txt(prix), "tva": _txt(tva), **({"sessions": sessions} if sessions else {})}
+            "prix": _txt(prix), "tva": _txt(tva), "taxable": taxable, **({"sessions": sessions} if sessions else {})}
 
 
 def _lignes(brut, taux_defaut):
@@ -474,18 +547,50 @@ def tva_applicable(entreprise):
     return entreprise.get("tva_mode", "assujetti") == "assujetti"
 
 
+def taux_par_defaut(entreprise):
+    """Le taux de TVA d'une nouvelle ligne (« 0 » sans TVA ou au Canada, où la
+    ligne est seulement taxable ou non)."""
+    if canadien(entreprise) or not tva_applicable(entreprise):
+        return "0"
+    return entreprise.get("tva_taux", "20")
+
+
+def _repartir(bases, remise, dec):
+    """Les bases après remise : la remise est répartie au prorata ; la dernière
+    base reçoit le reste, pour que la somme des parts soit exactement la remise."""
+    sous_total = sum(bases.values(), Decimal(0))
+    apres, reparti = {}, Decimal(0)
+    cles = sorted(bases)
+    for i, cle in enumerate(cles):
+        if i == len(cles) - 1:
+            part = remise - reparti
+        else:
+            part = _arrondi(remise * bases[cle] / sous_total, dec) if sous_total else Decimal(0)
+        reparti += part
+        apres[cle] = bases[cle] - part
+    return apres
+
+
 def calculer(doc, entreprise):
     """Totaux exacts, arrondis à la devise : {lignes: [total HT], sous_total,
-    remise, total_ht, tva: [{taux, base, montant}], total_tva, total_ttc}."""
+    remise, total_ht, tva: [{taux, base, montant}], total_tva, total_ttc}.
+
+    Régime canadien : chaque taxe (TPS, TVQ, TVH…) s'applique au même montant
+    taxable après remise, jamais à une autre taxe ; tva: [{code, taux, base,
+    montant, numero}]."""
     devise = devise_de(entreprise)
     dec = devise["decimales"]
     avec_tva = tva_applicable(entreprise)
+    canada = canadien(entreprise)
     totaux_lignes, bases = [], {}
     for ligne in doc.get("lignes") or []:
         ht = _arrondi(Decimal(ligne["quantite"]) * Decimal(ligne["prix"]), dec)
-        taux = Decimal(ligne["tva"]) if avec_tva else Decimal(0)
+        if canada:
+            cle = avec_tva and ligne.get("taxable") is not False  # True : taxable
+        else:
+            cle = Decimal(ligne["tva"]) if avec_tva else Decimal(0)
         totaux_lignes.append(ht)
-        bases[taux] = bases.get(taux, Decimal(0)) + ht
+        bases[cle] = bases.get(cle, Decimal(0)) + ht
     sous_total = sum(bases.values(), Decimal(0))
     remise_doc = doc.get("remise") or {"type": "aucune"}
     remise = Decimal(0)
@@ -495,33 +600,34 @@ def calculer(doc, entreprise):
         remise = _arrondi(Decimal(remise_doc["valeur"]), dec)
         if remise > sous_total:
             raise ValueError("La remise dépasse le sous-total.")
-    # Remise répartie au prorata des bases ; le dernier taux reçoit le reste
-    # pour que la somme des parts soit exactement la remise.
-    tva, total_tva, reparti = [], Decimal(0), Decimal(0)
-    taux_tries = sorted(bases)
-    for i, taux in enumerate(taux_tries):
-        if i == len(taux_tries) - 1:
-            part = remise - reparti
-        else:
-            part = _arrondi(remise * bases[taux] / sous_total, dec) if sous_total else Decimal(0)
-        reparti += part
-        base = bases[taux] - part
-        montant = _arrondi(base * taux / 100, dec)
-        total_tva += montant
+    apres = _repartir(bases, remise, dec)
+    tva, total_tva = [], Decimal(0)
+    if canada:
+        base = apres.get(True, Decimal(0))
         if avec_tva:
-            tva.append({"taux": _txt(taux), "base": format(base, "f"), "montant": format(montant, "f")})
+            for taxe in entreprise.get("taxes") or []:
+                montant = _arrondi(base * Decimal(taxe["taux"]) / 100, dec)
+                total_tva += montant
+                tva.append({"code": taxe["code"], "taux": taxe["taux"], "numero": taxe.get("numero") or "",
+                            "base": format(base, "f"), "montant": format(montant, "f")})
+    else:
+        for taux, base in sorted(apres.items()):
+            montant = _arrondi(base * taux / 100, dec)
+            total_tva += montant
+            if avec_tva:
+                tva.append({"taux": _txt(taux), "base": format(base, "f"), "montant": format(montant, "f")})
     total_ht = sous_total - remise
     return {"lignes": [format(x, "f") for x in totaux_lignes], "sous_total": format(sous_total, "f"),
             "remise": format(remise, "f"), "total_ht": format(total_ht, "f"), "tva": tva,
             "total_tva": format(total_tva, "f"), "total_ttc": format(total_ht + total_tva, "f"),
-            "avec_tva": avec_tva, "devise": devise}
+            "avec_tva": avec_tva, "regime": "canada" if canada else "tva", "devise": devise}
 
 
 def _valider_brouillon(brut, d, existant=None):
     """Le contenu modifiable d'un brouillon, propre."""
     brut = brut or {}
     entreprise = d["entreprise"]
-    taux_defaut = entreprise.get("tva_taux", "20") if tva_applicable(entreprise) else "0"
+    taux_defaut = taux_par_defaut(entreprise)
     propre = {
         "client": _client(brut.get("client")),
         "lignes": _lignes(brut.get("lignes"), taux_defaut),
@@ -930,7 +1036,10 @@ def lister():
         e = d["entreprise"]
         return {"configuree": configuree(d), "documents": [_resume_doc(x, d, jour) for x in docs],
                 "resume": resume(d, jour), "aujourdhui": jour.isoformat(),
-                "devise": devise_de(e), "tva_applicable": tva_applicable(e), "tva_taux": e.get("tva_taux", "20"),
+                "devise": devise_de(e), "tva_applicable": tva_applicable(e), "tva_taux": taux_par_defaut(e),
+                "regime": "canada" if canadien(e) else "tva",
+                "taxes": [{"code": x["code"], "nom": nom_taxe(x["code"]), "taux": x["taux"]} for x in e.get("taxes") or []]
+                if canadien(e) else [],
                 "delai_jours": e.get("delai_jours", 30), "validite_jours": e.get("validite_jours", 30),
                 "clients": list(clients.values())[:200], "temps": temps_disponible()}
 
@@ -1038,7 +1147,7 @@ def lignes_heures(ids, taux_horaire, regrouper="projet"):
         raise ValueError("Choisissez au moins une session.")
     d = _lire()
     entreprise = d["entreprise"]
-    tva = entreprise.get("tva_taux", "20") if tva_applicable(entreprise) else "0"
+    tva = taux_par_defaut(entreprise)
     sessions = sorted((s for s in temps.sessions("tout") if s["id"] in voulues), key=lambda s: s["debut"])
     if not sessions:
         raise ValueError("Sessions introuvables.")
@@ -1059,7 +1168,7 @@ def lignes_heures(ids, taux_horaire, regrouper="projet"):
         else:
             designation = _texte("{projet} – du {debut} au {fin}", projet=projet, debut=premier, fin=dernier)
         lignes.append({"designation": designation, "quantite": _txt(_heures_decimales(minutes)), "unite": "h",
-                       "prix": _txt(taux), "tva": tva, "sessions": [s["id"] for s in liste]})
+                       "prix": _txt(taux), "tva": tva, "taxable": True, "sessions": [s["id"] for s in liste]})
     return {"lignes": lignes}
 
 
@@ -1136,7 +1245,11 @@ def html_document(doc, d, jour=None):
     entreprise = _contexte(doc, d)
     devise = devise_de(entreprise)
     totaux = calculer(doc, entreprise)
-    avec_tva = totaux["avec_tva"]
+    canada = totaux["regime"] == "canada"
+    taxes_ca = canada and totaux["avec_tva"]
+    # Colonne « Taxable » seulement si une ligne ne l'est pas.
+    colonne_taxable = taxes_ca and any(x.get("taxable") is False for x in doc.get("lignes") or [])
+    avec_tva = totaux["avec_tva"] and not canada  # TVA par ligne (HT, TTC)
     brouillon = not doc.get("numero")
     jour = jour or aujourdhui()
 
@@ -1156,6 +1269,9 @@ def html_document(doc, d, jour=None):
         meta.append((_texte("Valable jusqu'au"), _date_affichee(doc["validite"])))
     logo = _logo_data(entreprise.get("logo"))
     identifiants = [f"{_e(i['libelle'])} {_e(i['valeur'])}".strip() for i in entreprise.get("identifiants") or []]
+    if taxes_ca:  # numéros d'inscription (TPS, TVQ…), obligatoires sur la facture
+        identifiants += [_e(_texte("N° {nom} : {numero}", nom=nom_taxe(t["code"]), numero=t["numero"]))
+                         for t in totaux["tva"] if t.get("numero")]
     contacts = [x for x in (entreprise.get("email"), (_texte("Tél.") + " " + entreprise["telephone"]) if entreprise.get("telephone") else "") if x]
     client = doc.get("client") or {}
 
@@ -1164,6 +1280,8 @@ def html_document(doc, d, jour=None):
                f"<th class='num'>{_e(_texte('Prix unit. HT' if avec_tva else 'Prix unit.'))}</th>"]
     if avec_tva:
         entetes.append(f"<th class='num'>{_e(_texte('TVA'))}</th>")
+    if colonne_taxable:
+        entetes.append(f"<th>{_e(_texte('Taxable'))}</th>")
     entetes.append(f"<th class='num'>{_e(_texte('Total HT' if avec_tva else 'Montant'))}</th>")
     lignes_html = []
     for ligne, total in zip(doc.get("lignes") or [], totaux["lignes"]):
@@ -1172,6 +1290,8 @@ def html_document(doc, d, jour=None):
                     f"<td class='num'>{_e(formater_montant(Decimal(ligne['prix']), {**devise, 'decimales': max(devise['decimales'], len(ligne['prix'].partition('.')[2]))}))}</td>"]
         if avec_tva:
             cellules.append(f"<td class='num'>{qte(ligne['tva'])}{'%' if config.langue() == 'en' else ' %'}</td>")
+        if colonne_taxable:
+            cellules.append(f"<td>{_e(_texte('Non' if ligne.get('taxable') is False else 'Oui'))}</td>")
         cellules.append(f"<td class='num'>{m(total)}</td>")
         lignes_html.append("<tr>" + "".join(cellules) + "</tr>")
 
@@ -1182,7 +1302,12 @@ def html_document(doc, d, jour=None):
         r = doc.get("remise") or {}
         libelle = _texte("Remise ({p} %)", p=_taux_affiche(r["valeur"])) if r.get("type") == "pourcent" else _texte("Remise")
         tot.append((libelle, "−" + m(totaux["remise"])))
-    if avec_tva:
+    if taxes_ca:
+        tot.append((_texte("Total avant taxes"), m(totaux["total_ht"])))
+        for t in totaux["tva"]:
+            tot.append((_texte("{nom} ({t} %)", nom=nom_taxe(t["code"]), t=_taux_affiche(t["taux"])), m(t["montant"])))
+        dernier = _texte("Total de l'avoir") if genre == "avoir" else _texte("Total")
+    elif avec_tva:
         tot.append((_texte("Total HT"), m(totaux["total_ht"])))
         for t in totaux["tva"]:
             tot.append((_texte("TVA {t} %", t=_taux_affiche(t["taux"])), m(t["montant"])))

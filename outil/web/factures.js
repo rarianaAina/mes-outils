@@ -43,6 +43,8 @@
     .fa-choix label { display: flex; align-items: center; gap: 8px; padding: 5px 0; color: var(--encre); font-size: 13.5px; cursor: pointer; }
     .fa-taux { display: flex; align-items: center; gap: 8px; margin: 0 0 6px 26px; color: var(--doux); font-size: 13px; }
     .fa-section > textarea { width: 100%; resize: vertical; min-height: 70px; }
+    .fa-taxe { display: grid; grid-template-columns: 44px 80px 14px minmax(0, 1fr); gap: 8px; align-items: center; margin-bottom: 8px; font-size: 13.5px; }
+    .fa-taxe span { color: var(--doux); }
     .fa-ident { display: grid; grid-template-columns: 140px minmax(0, 1fr) 30px; gap: 8px; margin-bottom: 8px; align-items: center; }
     .fa-logo { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
     .fa-logo .cadre { width: 150px; height: 72px; border: 1px dashed var(--ligne-forte); border-radius: 8px; display: grid; place-items: center;
@@ -111,7 +113,9 @@
     const d = devise || F.r?.devise || { code: "EUR", symbole: "€", decimales: 2 };
     const n = Number(valeur || 0);
     try {
+      // Dollar canadien : « 150,00 $ » comme au Québec et sur le PDF (et non « $CA »).
       return espaces(new Intl.NumberFormat(I18N.locale(), { style: "currency", currency: d.code,
+        ...(d.code === "CAD" ? { currencyDisplay: "narrowSymbol" } : {}),
         minimumFractionDigits: d.decimales, maximumFractionDigits: d.decimales }).format(n));
     } catch {
       return espaces(new Intl.NumberFormat(I18N.locale(), { minimumFractionDigits: d.decimales, maximumFractionDigits: d.decimales }).format(n))
@@ -323,13 +327,70 @@
     // TVA
     const taux = entree("tva_taux", { inputmode: "decimal", style: "width:90px;text-align:right" });
     const texteTva = zoneTexte("tva_texte", { rows: 2, placeholder: "ex. TVA non applicable – Exonération" });
+    const penalites = zoneTexte("penalites", { rows: 3 });
     const blocTaux = el("div", { class: "fa-taux" }, el("span", {}, "Taux par défaut"), taux, el("span", {}, "%"));
-    const majTva = () => { blocTaux.hidden = v.tva_mode !== "assujetti"; texteTva.parentElement.hidden = v.tva_mode !== "libre"; };
-    const radio = (mode, libelle) => el("label", {},
-      el("input", { type: "radio", name: "fa-tva", value: mode, checked: v.tva_mode === mode ? "" : null, onchange: () => { v.tva_mode = mode; majTva(); } }), libelle);
+    const radio = (mode, libelle, nom = "fa-tva") => el("label", {},
+      el("input", { type: "radio", name: nom, value: mode, checked: v.tva_mode === mode ? "" : null, onchange: () => { v.tva_mode = mode; majTva(); } }), libelle);
+
+    // Taxes canadiennes : province, taux (modifiables) et numéros d'inscription.
+    v.regime = v.regime || "tva";
+    v.province = v.province || "QC";
+    v.taxes = (v.taxes || []).map(x => ({ ...x }));
+    const zoneTaxes = el("div", { class: "fa-taxes" });
+    function taxesDeLaProvince() {
+      const p = r.provinces.find(x => x.code === v.province) || r.provinces[0];
+      const numeros = Object.fromEntries(v.taxes.map(x => [x.code, x.numero || ""]));
+      v.taxes = p.taxes.map(x => ({ code: x.code, taux: x.taux, numero: numeros[x.code] || "" }));
+      dessinerTaxes();
+    }
+    function dessinerTaxes() {
+      zoneTaxes.replaceChildren(...v.taxes.map(x => el("div", { class: "fa-taxe" },
+        el("b", {}, r.noms_taxes[x.code] || x.code),
+        el("input", { value: nombreAffiche(x.taux), inputmode: "decimal", "aria-label": t("Taux"), style: "width:80px;text-align:right",
+          oninput: ev => { x.taux = ev.target.value; } }),
+        el("span", {}, "%"),
+        el("input", { value: x.numero || "", maxlength: 40, "aria-label": t("N° d'inscription"),
+          placeholder: x.code === "TVQ" ? "ex. 1234567890 TQ0001" : x.code === "TPS" || x.code === "TVH" ? "ex. 123456789 RT0001" : t("N° d'inscription"),
+          oninput: ev => { x.numero = ev.target.value; } }))));
+    }
+    if (!v.taxes.length) taxesDeLaProvince(); else dessinerTaxes();
+    const choixProvince = el("select", { onchange: ev => { v.province = ev.target.value; taxesDeLaProvince(); } },
+      r.provinces.map(p => el("option", { value: p.code, selected: v.province === p.code ? "" : null }, t(p.nom))));
+    const blocTvaFr = el("div", { class: "fa-choix" },
+      radio("assujetti", "Assujetti à la TVA"), blocTaux,
+      radio("franchise", r.mention_293b),
+      radio("libre", "Autre mention"));
+    const blocCanada = el("div", {},
+      champ("Province ou territoire", choixProvince),
+      el("div", { class: "fa-choix" },
+        radio("assujetti", "Inscrit aux taxes", "fa-tva-ca"),
+        radio("libre", "Non inscrit (autre mention)", "fa-tva-ca")),
+      zoneTaxes,
+      el("p", { class: "aide" }, "Les taux sont ceux de la province ; vous pouvez les modifier. Les numéros d'inscription sont imprimés sur chaque facture."));
+    const choixRegime = el("select", { onchange: ev => {
+      v.regime = ev.target.value;
+      if (v.regime === "canada") {
+        if (v.tva_mode === "franchise") v.tva_mode = "assujetti";
+        // Les mentions propres à la France ne valent pas au Canada.
+        if (v.penalites === r.penalites_fr) { v.penalites = ""; penalites.value = ""; }
+        if (v.devise_choix === "EUR") { v.devise_choix = "CAD"; devise.value = "CAD"; blocAutre.hidden = true; }
+      }
+      for (const b of document.querySelectorAll('input[name="fa-tva"], input[name="fa-tva-ca"]')) b.checked = b.value === v.tva_mode;
+      majTva();
+    } }, [["tva", "TVA (France, Europe, Madagascar…)"], ["canada", "Canada (TPS, TVQ, TVH…)"]].map(([c, lib]) =>
+      el("option", { value: c, selected: v.regime === c ? "" : null }, lib)));
+    const majTva = () => {
+      const canada = v.regime === "canada";
+      blocTvaFr.hidden = canada;
+      blocCanada.hidden = !canada;
+      blocTaux.hidden = v.tva_mode !== "assujetti";
+      zoneTaxes.hidden = v.tva_mode !== "assujetti";
+      texteTva.parentElement.hidden = v.tva_mode !== "libre";
+      texteTva.placeholder = t(canada ? "ex. Petit fournisseur non inscrit aux fins de la TPS et de la TVQ" : "ex. TVA non applicable – Exonération");
+    };
 
     // Devise
-    const autre = !["EUR", "USD", "MGA"].includes(v.devise);
+    const autre = !["EUR", "USD", "CAD", "MGA"].includes(v.devise);
     v.devise_choix = autre ? "AUTRE" : v.devise;
     v.devise_code = autre ? v.devise : "";
     const blocAutre = el("div", { class: "fa-trois" },
@@ -338,7 +399,7 @@
       champ("Décimales", entree("devise_decimales", { type: "number", min: 0, max: 3 })));
     blocAutre.hidden = !autre;
     const devise = el("select", { onchange: ev => { v.devise_choix = ev.target.value; blocAutre.hidden = v.devise_choix !== "AUTRE"; } },
-      [["EUR", "Euro (€)"], ["USD", "Dollar américain ($)"], ["MGA", "Ariary (Ar)"], ["AUTRE", "Autre devise"]].map(([c, lib]) =>
+      [["EUR", "Euro (€)"], ["USD", "Dollar américain ($)"], ["CAD", "Dollar canadien ($)"], ["MGA", "Ariary (Ar)"], ["AUTRE", "Autre devise"]].map(([c, lib]) =>
         el("option", { value: c, selected: v.devise_choix === c ? "" : null }, lib)));
 
     const prochains = el("div", { class: "fa-somme" });
@@ -396,13 +457,11 @@
             el("div", { class: "fa-deux" },
               champ("Délai de paiement (jours)", entree("delai_jours", { type: "number", min: 0, max: 365 }), "0 = à réception"),
               champ("Validité des devis (jours)", entree("validite_jours", { type: "number", min: 1, max: 365 }))),
-            champ("Pénalités de retard", zoneTexte("penalites", { rows: 3 })))),
+            champ("Pénalités de retard", penalites))),
         el("div", {},
-          section("TVA",
-            el("div", { class: "fa-choix" },
-              radio("assujetti", "Assujetti à la TVA"), blocTaux,
-              radio("franchise", r.mention_293b),
-              radio("libre", "Autre mention")),
+          section("Taxes",
+            champ("Régime", choixRegime),
+            blocTvaFr, blocCanada,
             champ("Mention imprimée", texteTva)),
           section("Devise",
             champ("Devise des documents", devise), blocAutre),
@@ -426,7 +485,7 @@
   }
 
   function ligneVide() {
-    return { designation: "", quantite: "1", unite: "", prix: "", tva: F.r.tva_applicable ? F.r.tva_taux : "0" };
+    return { designation: "", quantite: "1", unite: "", prix: "", tva: F.r.tva_applicable ? F.r.tva_taux : "0", taxable: true };
   }
 
   function nouveau(type) {
@@ -453,7 +512,11 @@
   async function ecranEdition() {
     F.ecran = "edition";
     const d = F.doc;
-    const tva = F.r.tva_applicable;
+    // TVA par ligne (France…), ou taxes canadiennes : la ligne est taxable ou non.
+    const canada = F.r.regime === "canada";
+    const tva = F.r.tva_applicable && !canada;
+    const taxes = F.r.tva_applicable && canada;
+    const nomTaxe = code => (F.r.taxes || []).find(x => x.code === code)?.nom || code;
     const marquer = () => { F.modifie = true; };
     const sur = (objet, cle, attrs = {}) => el("input", { value: objet[cle] ?? "", ...attrs,
       oninput: e => { objet[cle] = e.target.value; marquer(); if (attrs["data-calcul"]) recalculer(); } });
@@ -496,6 +559,8 @@
         el("td", { style: "width:92px" }, sur(l, "unite", { maxlength: 20, list: "fa-unites" })),
         el("td", { style: "width:112px" }, sur(l, "prix", { class: "d", inputmode: "decimal", placeholder: "0,00", "data-calcul": 1, value: nombreAffiche(l.prix) })),
         tva ? el("td", { style: "width:74px" }, sur(l, "tva", { class: "d", inputmode: "decimal", "data-calcul": 1, value: nombreAffiche(l.tva) })) : null,
+        taxes ? el("td", { style: "width:74px;text-align:center" }, el("input", { type: "checkbox", "aria-label": t("Taxable"),
+          checked: l.taxable !== false ? "" : null, onchange: e => { l.taxable = e.target.checked; marquer(); recalculer(); } })) : null,
         el("td", { class: "total", "data-ligne": i }, "—"),
         el("td", { style: "width:34px" }, iconeBtn("x", "Retirer la ligne", () => { d.lignes.splice(i, 1); if (!d.lignes.length) d.lignes.push(ligneVide()); marquer(); dessinerLignes(); recalculer(); }, "danger")))));
     }
@@ -530,9 +595,11 @@
         remise ? l(tva ? "Sous-total HT" : "Sous-total", montant(r.sous_total, r.devise)) : null,
         remise ? l(d.remise.type === "pourcent" ? t("Remise ({p} %)", { p: nombreAffiche(d.remise.valeur) }) : t("Remise"), "−" + montant(r.remise, r.devise)) : null,
         tva ? l("Total HT", montant(r.total_ht, r.devise)) : null,
+        taxes ? l("Total avant taxes", montant(r.total_ht, r.devise)) : null,
         ...(tva ? r.tva.map(x => l(t("TVA {t} %", { t: nombreAffiche(x.taux) }), montant(x.montant, r.devise))) : []),
+        ...(taxes ? r.tva.map(x => l(t("{nom} ({t} %)", { nom: nomTaxe(x.code), t: nombreAffiche(x.taux) }), montant(x.montant, r.devise))) : []),
         l(tva ? "Total TTC" : "Total", montant(r.total_ttc, r.devise), "fort"),
-        tva ? null : el("div", { class: "fa-somme", style: "margin-top:6px" }, "Sans TVA (voir Réglages)."));
+        tva || taxes ? null : el("div", { class: "fa-somme", style: "margin-top:6px" }, canada ? "Sans taxes (voir Réglages)." : "Sans TVA (voir Réglages)."));
     }
 
     // Remise
@@ -583,6 +650,7 @@
               el("thead", {}, el("tr", {},
                 el("th", {}, "Désignation"), el("th", { class: "d" }, "Qté"), el("th", {}, "Unité"),
                 el("th", { class: "d" }, tva ? "Prix unit. HT" : "Prix unit."), tva ? el("th", { class: "d" }, "TVA %") : null,
+                taxes ? el("th", { style: "text-align:center" }, "Taxable") : null,
                 el("th", { class: "d" }, tva ? "Total HT" : "Montant"), el("th", {}))),
               corps),
             el("div", { class: "fa-pied-lignes" },
@@ -726,7 +794,7 @@
     const infos = [["Date d'émission", dateCourte(doc.date)]];
     if (doc.type === "facture") infos.push(["Échéance", dateCourte(doc.echeance)]);
     if (doc.type === "devis") infos.push(["Valable jusqu'au", dateCourte(doc.validite)]);
-    infos.push([doc.totaux.avec_tva ? "Total TTC" : "Total", montant(doc.totaux.total_ttc, dev)]);
+    infos.push([doc.totaux.avec_tva && doc.totaux.regime !== "canada" ? "Total TTC" : "Total", montant(doc.totaux.total_ttc, dev)]);
     if (doc.type === "facture") {
       if (Number(r.avoirs) > 0) infos.push(["Avoirs", "−" + montant(r.avoirs, dev)]);
       infos.push(["Payé", montant(r.paye, dev)]);
@@ -934,6 +1002,20 @@
     "Devise": "Currency", "Devise des documents": "Document currency", "Euro (€)": "Euro (€)", "Dollar américain ($)": "US dollar ($)",
     "Ariary (Ar)": "Ariary (Ar)", "Autre devise": "Other currency", "Code": "Code", "Symbole": "Symbol", "Décimales": "Decimals",
     "ex. CHF": "e.g. CHF", "Numérotation": "Numbering",
+    "Dollar canadien ($)": "Canadian dollar ($)", "Taxes": "Taxes", "Régime": "Tax system",
+    "TVA (France, Europe, Madagascar…)": "VAT (France, Europe, Madagascar…)", "Canada (TPS, TVQ, TVH…)": "Canada (GST, QST, HST…)",
+    "Province ou territoire": "Province or territory", "Inscrit aux taxes": "Registered for sales taxes",
+    "Non inscrit (autre mention)": "Not registered (other statement)", "Taux": "Rate", "N° d'inscription": "Registration number",
+    "ex. 1234567890 TQ0001": "e.g. 1234567890 TQ0001", "ex. 123456789 RT0001": "e.g. 123456789 RT0001",
+    "Les taux sont ceux de la province ; vous pouvez les modifier. Les numéros d'inscription sont imprimés sur chaque facture.":
+      "Rates are the province's usual ones; you can change them. Registration numbers are printed on every invoice.",
+    "ex. Petit fournisseur non inscrit aux fins de la TPS et de la TVQ": "e.g. Small supplier, not registered for GST/QST",
+    "Québec": "Quebec", "Ontario": "Ontario", "Nouvelle-Écosse": "Nova Scotia", "Nouveau-Brunswick": "New Brunswick",
+    "Terre-Neuve-et-Labrador": "Newfoundland and Labrador", "Île-du-Prince-Édouard": "Prince Edward Island",
+    "Colombie-Britannique": "British Columbia", "Manitoba": "Manitoba", "Saskatchewan": "Saskatchewan", "Alberta": "Alberta",
+    "Yukon, Territoires du Nord-Ouest, Nunavut": "Yukon, Northwest Territories, Nunavut",
+    "Taxable": "Taxable", "Total avant taxes": "Total before tax", "{nom} ({t} %)": "{nom} ({t}%)",
+    "Sans taxes (voir Réglages).": "No sales tax (see Settings).",
     "Prochains numéros : {d}, {f}, {a}": "Next numbers: {d}, {f}, {a}",
     "Numéro attribué à l'émission, à la suite, et remis à 1 chaque année.": "Numbers are given on issue, in sequence, and restart at 1 each year.",
     "Réglages enregistrés": "Settings saved",
@@ -1032,11 +1114,15 @@
     "Taux de TVA": "VAT rate", "Délai de paiement": "Payment term", "Validité des devis": "Quote validity", "Validité": "Validity",
     "nombre manquant.": "missing number.", "nombre invalide.": "invalid number.", "valeur trop petite.": "value too small.",
     "valeur trop grande.": "value too large.", "nombre entier attendu.": "whole number expected.",
+    "Régime de taxes inconnu.": "Unknown tax system.", "Province inconnue.": "Unknown province.",
+    "Deux taxes au plus.": "Two taxes at most.", "Taxe inconnue.": "Unknown tax.", "Une taxe est en double.": "A tax is listed twice.",
+    "Au Canada, choisissez « Inscrit aux taxes » ou « Non inscrit ».": "In Canada, choose “Registered for sales taxes” or “Not registered”.",
   });
   I18N.motifs([
     [/^Ligne (\d+), quantité$/, "Line $1, quantity"],
     [/^Ligne (\d+), prix$/, "Line $1, price"],
     [/^Ligne (\d+), TVA$/, "Line $1, VAT"],
+    [/^Taux de la (TPS|TVQ|TVH|TVP|TVD)$/, "Rate"],
     [/^(\d) décimales au plus\.$/, "$1 decimals at most."],
     [/^entre (\d+) et (\d+)\.$/, "between $1 and $2."],
     [/^(\d+) lignes au plus\.$/, "$1 lines at most."],

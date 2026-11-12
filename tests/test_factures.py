@@ -488,6 +488,116 @@ class TestPdfMailExport(BaseFactures):
         self.assertIn("€1,080.00", html)
 
 
+QUEBEC = {"regime": "canada", "province": "QC", "devise": "CAD", "iban": "", "bic": "", "penalites": "",
+          "identifiants": [], "taxes": [{"code": "TPS", "taux": "5", "numero": "123456789 RT0001"},
+                                        {"code": "TVQ", "taux": "9.975", "numero": "1234567890 TQ0001"}]}
+
+
+def ligne_ca(designation, quantite, prix, taxable=True):
+    return {"designation": designation, "quantite": quantite, "prix": prix, "taxable": taxable}
+
+
+class TestCanada(BaseFactures):
+    """Dollar canadien, TPS, TVQ, TVH et TVP : chaque taxe sur le même montant taxable."""
+
+    def totaux(self, lignes, remise=None, **reglages):
+        self.configurer(**{**QUEBEC, **reglages})
+        entreprise = factures._lire()["entreprise"]
+        doc = {"lignes": [factures._ligne(x, i, "0") for i, x in enumerate(lignes, 1)],
+               "remise": factures._remise(remise)}
+        return factures.calculer(doc, entreprise)
+
+    def montants(self, t):
+        return [(x["code"], x["montant"]) for x in t["tva"]], t["total_ttc"]
+
+    def test_quebec_tps_et_tvq(self):
+        t = self.totaux([ligne_ca("Conception", "1", "100")])
+        self.assertEqual(self.montants(t), ([("TPS", "5.00"), ("TVQ", "9.98")], "114.98"),
+                         "TVQ sur le prix avant taxes, pas sur la TPS")
+        t = self.totaux([ligne_ca("Conception", "1", "1234.56")])
+        self.assertEqual(self.montants(t), ([("TPS", "61.73"), ("TVQ", "123.15")], "1419.44"))
+
+    def test_provinces(self):
+        attendus = {
+            "ON": ([("TVH", "13.00")], "113.00"), "NS": ([("TVH", "14.00")], "114.00"),
+            "NB": ([("TVH", "15.00")], "115.00"), "NL": ([("TVH", "15.00")], "115.00"),
+            "PE": ([("TVH", "15.00")], "115.00"), "BC": ([("TPS", "5.00"), ("TVP", "7.00")], "112.00"),
+            "MB": ([("TPS", "5.00"), ("TVD", "7.00")], "112.00"), "SK": ([("TPS", "5.00"), ("TVP", "6.00")], "111.00"),
+            "AB": ([("TPS", "5.00")], "105.00"), "TERR": ([("TPS", "5.00")], "105.00"),
+        }
+        for province, attendu in attendus.items():
+            # Sans taxes envoyées : celles de la province, à leurs taux habituels.
+            t = self.totaux([ligne_ca("Service", "1", "100")], province=province, taxes=None)
+            self.assertEqual(self.montants(t), attendu, province)
+
+    def test_taux_modifie(self):
+        t = self.totaux([ligne_ca("Service", "1", "100")], province="ON", taxes=[{"code": "TVH", "taux": "15"}])
+        self.assertEqual(self.montants(t), ([("TVH", "15.00")], "115.00"))
+
+    def test_ligne_non_taxable_et_remise(self):
+        t = self.totaux([ligne_ca("Service", "1", "100"), ligne_ca("Livre", "1", "50", False)])
+        self.assertEqual(self.montants(t), ([("TPS", "5.00"), ("TVQ", "9.98")], "164.98"),
+                         "la ligne non taxable n'entre pas dans la base")
+        t = self.totaux([ligne_ca("Service", "1", "100"), ligne_ca("Livre", "1", "50", False)],
+                        {"type": "pourcent", "valeur": "10"})
+        self.assertEqual((t["sous_total"], t["remise"], t["total_ht"]), ("150.00", "15.00", "135.00"))
+        self.assertEqual(self.montants(t), ([("TPS", "4.50"), ("TVQ", "8.98")], "148.48"),
+                         "remise répartie : 10 sur la part taxable, 5 sur l'autre")
+
+    def test_non_inscrit(self):
+        t = self.totaux([ligne_ca("Service", "1", "100")], tva_mode="libre",
+                        tva_texte="Petit fournisseur non inscrit aux fins de la TPS et de la TVQ")
+        self.assertEqual(self.montants(t), ([], "100.00"))
+        html = factures.apercu(self.facture([ligne_ca("Service", "1", "100")])["id"])["html"]
+        self.assertIn("Petit fournisseur non inscrit", html)
+        self.assertNotIn("TPS (", html)
+
+    def test_reglages_refuses(self):
+        for mauvais in ({"tva_mode": "franchise"}, {"province": "XX"}, {"regime": "suisse"},
+                        {"taxes": [{"code": "TPS", "taux": "5"}, {"code": "TPS", "taux": "5"}]},
+                        {"taxes": [{"code": "TPS"}, {"code": "TVQ"}, {"code": "TVP"}]},
+                        {"taxes": [{"code": "IVA", "taux": "5"}]}, {"taxes": [{"code": "TPS", "taux": "120"}]}):
+            with self.assertRaises(ValueError, msg=f"devrait être refusé : {mauvais}"):
+                self.configurer(**{**QUEBEC, **mauvais})
+
+    def test_dollar_canadien(self):
+        cad = factures.devise_de({"devise": "CAD"})
+        self.assertEqual(cad, {"code": "CAD", "symbole": "$", "decimales": 2})
+        self.assertEqual(factures.formater_montant(Decimal("1234.5"), cad, "fr"), "1 234,50 $")
+        self.assertEqual(factures.formater_montant(Decimal("1234.5"), cad, "en"), "$1,234.50")
+
+    def test_facture_imprimee(self):
+        self.configurer(**QUEBEC)
+        f = self.facture([ligne_ca("Conception graphique", "1", "100"), ligne_ca("Livre", "1", "50", False)])
+        self.emettre(f["id"])
+        html = factures.apercu(f["id"])["html"]
+        for attendu in ("TPS (5 %)", "TVQ (9,975 %)", "N° TPS : 123456789 RT0001", "N° TVQ : 1234567890 TQ0001",
+                        "Total avant taxes", "164,98 $", "Taxable", "Non"):
+            self.assertIn(attendu, html)
+        for absent in ("Total HT", "TTC", "TVA 20", "40 €"):
+            self.assertNotIn(absent, html)
+        with mock.patch.object(factures.config, "langue", return_value="en"):
+            html = factures.apercu(f["id"])["html"]
+        for attendu in ("GST (5%)", "QST (9.975%)", "GST No.: 123456789 RT0001", "Total before tax", "$164.98"):
+            self.assertIn(attendu, html)
+
+    def test_document_emis_garde_ses_taxes(self):
+        self.configurer(**QUEBEC)
+        doc = self.emettre(self.facture([ligne_ca("Service", "1", "100")])["id"])
+        self.configurer(**{**QUEBEC, "taxes": [{"code": "TPS", "taux": "5"}, {"code": "TVQ", "taux": "10"}]})
+        self.configurer()  # retour à la TVA française
+        d = factures._lire()
+        emis = factures._trouver(d, doc["id"])
+        t = factures.calculer(emis, factures._contexte(emis, d))
+        self.assertEqual(self.montants(t), ([("TPS", "5.00"), ("TVQ", "9.98")], "114.98"))
+
+    def test_page_de_la_liste(self):
+        self.configurer(**QUEBEC)
+        r = factures.lister()
+        self.assertEqual((r["regime"], r["tva_taux"]), ("canada", "0"))
+        self.assertEqual([x["nom"] for x in r["taxes"]], ["TPS", "TVQ"])
+
+
 class TestRoutes(ServeurTest):
     def test_routes(self):
         jour = datetime.date(2026, 3, 10)

@@ -90,7 +90,10 @@ Contacts  Personnes et entreprises : coordonnées, statut (prospect, client,
 
 Devis et factures
              Première fois : votre entreprise (nom, adresse, identifiants,
-             logo, TVA, devise, préfixes de numérotation). Devis, factures et
+             logo, TVA, devise, préfixes de numérotation). Au Canada : régime
+             « Canada » et province (TPS et TVQ, TVH, TPS et TVP), numéros
+             d'inscription imprimés, case « Taxable » par ligne, dollar
+             canadien. Devis, factures et
              avoirs : lignes, plusieurs taux de TVA, remise ; numéro attribué
              à l'émission, à la suite, remis à 1 chaque année ; un document
              émis n'est plus modifiable (avoir pour corriger). Devis accepté

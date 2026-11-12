@@ -328,6 +328,13 @@ Numbered quotes, invoices and credit notes, with totals exact to the cent.
   invoices and credit notes in the settings (gear icon).
 - Lines with quantity, price and VAT rate; discount as a percentage or an
   amount; several VAT rates in one document.
+- **Canada**: in the settings, Taxes section, choose the "Canada" tax system,
+  then your province. Taxes are added with their usual rates, which you can
+  change: GST and QST in Quebec, HST in Ontario and the Atlantic provinces,
+  GST and PST in the West, GST only in Alberta and the territories. Enter
+  your registration numbers: they are printed on every invoice. On each line,
+  the **Taxable** box is for exempt goods or services. Currency: Canadian
+  dollar.
 - **Issue**: the document gets its number and date, then it is locked. The
   PDF is created in `Documents\Mes outils\Factures\<year>\`.
 - Quotes: accepted, declined, then **Convert to invoice** in one click.

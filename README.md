@@ -39,7 +39,8 @@ anglais, thème clair ou sombre, palette de commandes (Ctrl + K).
   import et export CSV.
 - **Devis et factures** : numérotation automatique, TVA multi-taux, remises,
   avoirs, paiements partiels, PDF, relance des impayés, import des heures de
-  Temps. Montants calculés au centime près.
+  Temps. Taxes canadiennes (TPS, TVQ, TVH, TVP) et dollar canadien. Montants
+  calculés au centime près.
 - **Dépenses** : budget du mois, charges fixes, épargne, statistiques, notes
   de frais avec justificatifs, export CSV.
 - **Temps** : chrono par projet ou client, Pomodoro, export pour la facturation.

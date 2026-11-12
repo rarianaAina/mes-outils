@@ -341,6 +341,13 @@ Des devis, factures et avoirs numérotés, avec des totaux exacts au centime.
   réglages (roue dentée).
 - Lignes avec quantité, prix et taux de TVA ; remise en pourcentage ou en
   montant ; plusieurs taux de TVA dans un même document.
+- **Canada** : dans les réglages, section Taxes, choisissez le régime
+  « Canada », puis votre province. Les taxes s'ajoutent d'elles-mêmes avec
+  leurs taux habituels, modifiables : TPS et TVQ au Québec, TVH en Ontario et
+  dans les provinces de l'Atlantique, TPS et TVP dans l'Ouest, TPS seule en
+  Alberta et dans les territoires. Indiquez vos numéros d'inscription : ils
+  sont imprimés sur chaque facture. Sur chaque ligne, la case **Taxable**
+  sert aux produits ou services exonérés. Devise : dollar canadien.
 - **Émettre** : le document reçoit son numéro et sa date, puis il est figé. Le
   PDF est créé dans `Documents\Mes outils\Factures\<année>\`.
 - Devis : accepté, refusé, puis **Transformer en facture** en un clic.
